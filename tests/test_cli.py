@@ -326,8 +326,8 @@ def test_report_quarter_shortcut(runner, watson):
         (["--prev", "2"], "needs exactly one of"),
         (["-a", "--range", "1"], "needs exactly one of"),
         (["-w", "--prev", "1", "--range", "2"], "mutually exclusive"),
-        (["--prev", "1", "--from", "2018-01-01"], "can't be combined with --from"),
-        (["--range", "1", "--to", "2018-01-01"], "can't be combined with --to"),
+        (["--prev", "1", "--from", "2018-01-01"], "--from can't be combined"),
+        (["--range", "1", "--to", "2018-01-01"], "--to can't be combined"),
         (["-w", "--prev", "x"], "not a valid offset"),
         (["-w", "-q"], "mutually exclusive"),
     ],
@@ -366,3 +366,25 @@ def test_aggregate_week_shortcut(runner, watson):
     assert result.exit_code == 0, result.output
     expected = get_start_time_for_period("week").format("YYYY-MM-DD")
     assert f'"from": "{expected}' in result.output
+
+
+@pytest.mark.parametrize("command", ["report", "log", "aggregate"])
+@pytest.mark.parametrize(
+    "args",
+    [["-w", "--from", "2018-01-01"], ["-d", "--to", "2018-01-01"]],
+)
+def test_shortcut_with_from_to_rejected(runner, watson, command, args):
+    result = runner.invoke(getattr(cli, command), args, obj=watson)
+    assert result.exit_code != 0
+    assert "can't be combined" in result.output
+
+
+@pytest.mark.parametrize("command", ["report", "log", "aggregate"])
+def test_from_after_to_rejected(runner, watson, command):
+    result = runner.invoke(
+        getattr(cli, command),
+        ["--from", "2018-02-01", "--to", "2018-01-01"],
+        obj=watson,
+    )
+    assert result.exit_code != 0
+    assert "anterior" in result.output

@@ -119,16 +119,16 @@ Flag | Help
 `-c, --current / -C, --no-current` | (Don't) include currently running frame in report.
 `-f, --from DATETIME` | The date from when the report should start. Defaults to seven days ago.
 `-t, --to DATETIME` | The date at which the report should stop (inclusive). Defaults to tomorrow.
-`-y, --year` | Reports activity for the current year.
-`-q, --quarter` | Reports activity for the current quarter.
-`-m, --month` | Reports activity for the current month.
-`-w, --week` | Reports activity for the current week.
-`-d, --day` | Reports activity for the current day.
 `-p, --project TEXT` | Reports activity only for the given project. You can add other projects by using this option several times.
 `-T, --tag TEXT` | Reports activity only for frames containing the given tag. You can add several tags by using this option multiple times
 `-j, --json` | Format output in JSON instead of plain text
 `-s, --csv` | Format output in CSV instead of plain text
 `-g, --pager / -G, --no-pager` | (Don't) view output through a pager.
+`-y, --year` | Reports activity for the current year.
+`-q, --quarter` | Reports activity for the current quarter.
+`-m, --month` | Reports activity for the current month.
+`-w, --week` | Reports activity for the current week.
+`-d, --day` | Reports activity for the current day.
 `--prev START[-END]` | Report on earlier periods of the --day/--week/--month/--quarter/--year shortcut given, counting back from the current one (0): START alone is the single period START ago, START-END runs from START periods ago through END periods ago. E.g. `-w --prev 1` is last week.
 `--range START[-END]` | Like --prev, but END defaults to 0: `-w --range 3` is the past 3 weeks plus the current one.
 `--help` | Show this message and exit.
@@ -377,12 +377,6 @@ Flag | Help
 `-r, --reverse / -R, --no-reverse` | (Don't) reverse the order of the days in output.
 `-f, --from DATETIME` | The date from when the log should start. Defaults to seven days ago.
 `-t, --to DATETIME` | The date at which the log should stop (inclusive). Defaults to tomorrow.
-`-y, --year` | Reports activity for the current year.
-`-q, --quarter` | Reports activity for the current quarter.
-`-m, --month` | Reports activity for the current month.
-`-w, --week` | Reports activity for the current week.
-`-d, --day` | Reports activity for the current day.
-`-a, --all` | Reports all activities.
 `-p, --project TEXT` | Logs activity only for the given project. You can add other projects by using this option several times.
 `-T, --tag TEXT` | Logs activity only for frames containing the given tag. You can add several tags by using this option multiple times
 `--ignore-project TEXT` | Logs activity for all projects but the given ones. You can ignore several projects by using the option multiple times. Any given project will be ignored
@@ -390,6 +384,12 @@ Flag | Help
 `-j, --json` | Format output in JSON instead of plain text
 `-s, --csv` | Format output in CSV instead of plain text
 `-g, --pager / -G, --no-pager` | (Don't) view output through a pager.
+`-a, --all` | Reports all activities.
+`-y, --year` | Reports activity for the current year.
+`-q, --quarter` | Reports activity for the current quarter.
+`-m, --month` | Reports activity for the current month.
+`-w, --week` | Reports activity for the current week.
+`-d, --day` | Reports activity for the current day.
 `--prev START[-END]` | Report on earlier periods of the --day/--week/--month/--quarter/--year shortcut given, counting back from the current one (0): START alone is the single period START ago, START-END runs from START periods ago through END periods ago. E.g. `-w --prev 1` is last week.
 `--range START[-END]` | Like --prev, but END defaults to 0: `-w --range 3` is the past 3 weeks plus the current one.
 `--help` | Show this message and exit.
@@ -645,12 +645,6 @@ Flag | Help
 `-c, --current / -C, --no-current` | (Don't) include currently running frame in report.
 `-f, --from DATETIME` | The date from when the report should start. Defaults to seven days ago.
 `-t, --to DATETIME` | The date at which the report should stop (inclusive). Defaults to tomorrow.
-`-y, --year` | Reports activity for the current year.
-`-q, --quarter` | Reports activity for the current quarter.
-`-m, --month` | Reports activity for the current month.
-`-w, --week` | Reports activity for the current week.
-`-d, --day` | Reports activity for the current day.
-`-a, --all` | Reports all activities.
 `-p, --project TEXT` | Reports activity only for the given project. You can add other projects by using this option several times.
 `-T, --tag TEXT` | Reports activity only for frames containing the given tag. You can add several tags by using this option multiple times
 `--ignore-project TEXT` | Reports activity for all projects but the given ones. You can ignore several projects by using the option multiple times. Any given project will be ignored
@@ -658,6 +652,12 @@ Flag | Help
 `-j, --json` | Format output in JSON instead of plain text
 `-s, --csv` | Format output in CSV instead of plain text
 `-g, --pager / -G, --no-pager` | (Don't) view output through a pager.
+`-a, --all` | Reports all activities.
+`-y, --year` | Reports activity for the current year.
+`-q, --quarter` | Reports activity for the current quarter.
+`-m, --month` | Reports activity for the current month.
+`-w, --week` | Reports activity for the current week.
+`-d, --day` | Reports activity for the current day.
 `--prev START[-END]` | Report on earlier periods of the --day/--week/--month/--quarter/--year shortcut given, counting back from the current one (0): START alone is the single period START ago, START-END runs from START periods ago through END periods ago. E.g. `-w --prev 1` is last week.
 `--range START[-END]` | Like --prev, but END defaults to 0: `-w --range 3` is the past 3 weeks plus the current one.
 `--help` | Show this message and exit.

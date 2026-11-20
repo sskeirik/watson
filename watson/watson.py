@@ -457,16 +457,8 @@ class Watson:
         tags=None,
         ignore_projects=None,
         ignore_tags=None,
-        year=None,
-        month=None,
-        week=None,
-        day=None,
-        all=None,
         include_partial_frames=False,
     ):
-        for start_time in (_ for _ in [day, week, month, year, all] if _ is not None):
-            from_ = start_time
-
         if not self._validate_report_options(projects, ignore_projects):
             raise WatsonError("given projects can't be ignored at the same time")
 

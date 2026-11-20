@@ -21,7 +21,6 @@ from .autocompletion import (
 from .frames import Frame
 from .timezone import local_tz_info
 from .utils import (
-    apply_weekday_offset,
     build_csv,
     confirm_project,
     confirm_tags,
@@ -100,11 +99,6 @@ class DateTimeParamType(click.ParamType):
             # timezone, or respect the TZ environment variable not in UTC.
             # Cf issue #16.
             date = date.replace(tzinfo=local_tz_info())
-            # Add an offset to match the week beginning specified in the
-            # configuration
-            if param is not None and param.name == "week" and ctx is not None:
-                week_start = ctx.obj.config.get("options", "week_start", "monday")
-                date = apply_weekday_offset(start_time=date, week_start=week_start)
             return date
 
     def _parse_multiformat(self, value) -> arrow.Arrow | None:
@@ -538,10 +532,18 @@ def status(watson, project, tags, elapsed):
 
 
 _SHORTCUT_OPTIONS = ["all", "year", "quarter", "month", "week", "day"]
-_SHORTCUT_OPTIONS_VALUES = {k: get_start_time_for_period(k) for k in _SHORTCUT_OPTIONS}
 
 # Shortcuts that name a fixed-length calendar period --prev/--range can step by
 _PERIOD_SHORTCUTS = ["day", "week", "month", "quarter", "year"]
+
+_SHORTCUT_FLAGS = {
+    "year": "-y",
+    "quarter": "-q",
+    "month": "-m",
+    "week": "-w",
+    "day": "-d",
+    "all": "-a",
+}
 
 _PREV_HELP = (
     "Report on earlier periods of the --day/--week/--month/--quarter/--year "
@@ -555,26 +557,16 @@ _RANGE_HELP = (
 )
 
 
-def _shortcut_option(name, short, help):
-    return click.option(
-        short,
-        f"--{name}",
-        cls=MutuallyExclusiveOption,
-        type=DateTime,
-        flag_value=_SHORTCUT_OPTIONS_VALUES[name],
-        mutually_exclusive=[o for o in _SHORTCUT_OPTIONS if o != name],
-        help=help,
-    )
+def _period_options(allow_all=True):
+    """Add the period options to a timespan command and canonicalize them.
 
-
-def _period_options(foreign=("quarter",)):
-    """Add `--prev`/`--range` to a timespan command and resolve its timespan.
-
-    The wrapper turns `--prev`/`--range`, and the shortcut flags listed in
-    `foreign` (declared on the command but unknown to its body), into plain
-    `from_`/`to` values before calling the command. The body therefore keeps
-    working with `from_`/`to` and the shortcut flags it already knew about.
+    Adds the shortcut flags (`--day`, `--week`, ..., and `--all` when
+    `allow_all`), `--prev` and `--range`. The command must declare `--from`
+    (`from_`) and `--to` (`to`) itself. The wrapper validates all of these
+    and resolves them into an explicit `from_`/`to` range, so the command body
+    only ever sees plain `from_`/`to` values and none of the period options.
     """
+    names = [n for n in _SHORTCUT_OPTIONS if allow_all or n != "all"]
 
     def decorator(func):
         @wraps(func)
@@ -582,48 +574,60 @@ def _period_options(foreign=("quarter",)):
             ctx = click.get_current_context()
             prev = kwargs.pop("prev", None)
             range_ = kwargs.pop("range_", None)
-            own = {name: kwargs.pop(name, None) for name in foreign}
-            shortcuts = {
-                name: own[name] if name in own else kwargs.get(name)
-                for name in _SHORTCUT_OPTIONS
-            }
-            active = [name for name, value in shortcuts.items() if value is not None]
+            active = [name for name in names if kwargs.pop(name, False)]
 
-            if prev is None and range_ is None:
-                # Plain shortcut use: shortcuts the body doesn't know become from_
-                for name in active:
-                    if name in own:
-                        kwargs["from_"] = own[name]
-                return func(*args, **kwargs)
-
-            flag, spec = ("--prev", prev) if prev is not None else ("--range", range_)
-            if prev is not None and range_ is not None:
-                raise click.UsageError("--prev and --range are mutually exclusive.")
-            for param, opt in (("from_", "--from"), ("to", "--to")):
-                if (
+            def given(param):
+                return (
                     ctx.get_parameter_source(param)
                     == click.core.ParameterSource.COMMANDLINE
-                ):
-                    raise click.UsageError(f"{flag} can't be combined with {opt}.")
-            if len(active) != 1 or active[0] not in _PERIOD_SHORTCUTS:
-                raise click.UsageError(
-                    f"{flag} needs exactly one of --day, --week, --month, "
-                    "--quarter or --year."
                 )
-            try:
-                start, end = parse_period_offsets(
-                    spec, default_end=0 if flag == "--range" else None
-                )
-            except ValueError as e:
-                raise click.BadParameter(str(e), param_hint=flag) from None
 
+            if len(active) > 1:
+                raise click.UsageError(
+                    "The following options are mutually exclusive: "
+                    + ", ".join(f"`--{n}`" for n in sorted(active))
+                )
             week_start = ctx.obj.config.get("options", "week_start", "monday")
-            kwargs["from_"], kwargs["to"] = get_period_range(
-                active[0], start, end, week_start
-            )
-            for name in _SHORTCUT_OPTIONS:
-                if name in kwargs:
-                    kwargs[name] = None
+
+            if active or prev is not None or range_ is not None:
+                for param, opt in (("from_", "--from"), ("to", "--to")):
+                    if given(param):
+                        raise click.UsageError(
+                            f"{opt} can't be combined with a period option "
+                            "(--day, --week, --prev, --range, ...)."
+                        )
+
+            if prev is not None or range_ is not None:
+                if prev is not None and range_ is not None:
+                    raise click.UsageError("--prev and --range are mutually exclusive.")
+                flag, spec = ("--prev", prev) if prev is not None else ("--range", range_)
+                if len(active) != 1 or active[0] not in _PERIOD_SHORTCUTS:
+                    raise click.UsageError(
+                        f"{flag} needs exactly one of --day, --week, --month, "
+                        "--quarter or --year."
+                    )
+                try:
+                    start, end = parse_period_offsets(
+                        spec, default_end=0 if flag == "--range" else None
+                    )
+                except ValueError as e:
+                    raise click.BadParameter(str(e), param_hint=flag) from None
+                kwargs["from_"], kwargs["to"] = get_period_range(
+                    active[0], start, end, week_start
+                )
+            elif active:
+                # Plain shortcut: from the start of the period until `--to`'s
+                # default (now)
+                if active[0] == "all":
+                    from_ = get_start_time_for_period("all").replace(
+                        tzinfo=local_tz_info()
+                    )
+                else:
+                    from_ = get_period_range(active[0], 0, 0, week_start)[0]
+                kwargs["from_"] = from_
+
+            if kwargs["from_"] > kwargs["to"]:
+                raise click.UsageError("'from' must be anterior to 'to'")
             return func(*args, **kwargs)
 
         wrapper = click.option(
@@ -632,6 +636,16 @@ def _period_options(foreign=("quarter",)):
         wrapper = click.option(
             "--prev", "prev", metavar="START[-END]", help=_PREV_HELP
         )(wrapper)
+        for name in reversed(names):
+            wrapper = click.option(
+                _SHORTCUT_FLAGS[name],
+                f"--{name}",
+                name,
+                is_flag=True,
+                help="Reports all activities."
+                if name == "all"
+                else f"Reports activity for the current {name}.",
+            )(wrapper)
         return wrapper
 
     return decorator
@@ -649,27 +663,17 @@ def _period_options(foreign=("quarter",)):
     "-f",
     "--from",
     "from_",
-    cls=MutuallyExclusiveOption,
     type=DateTime,
     default=arrow.now().shift(days=-7),
-    mutually_exclusive=_SHORTCUT_OPTIONS,
     help="The date from when the report should start. Defaults to seven days ago.",
 )
 @click.option(
     "-t",
     "--to",
-    cls=MutuallyExclusiveOption,
     type=DateTime,
     default=arrow.now(),
-    mutually_exclusive=_SHORTCUT_OPTIONS,
     help="The date at which the report should stop (inclusive). Defaults to tomorrow.",
 )
-@_shortcut_option("year", "-y", "Reports activity for the current year.")
-@_shortcut_option("quarter", "-q", "Reports activity for the current quarter.")
-@_shortcut_option("month", "-m", "Reports activity for the current month.")
-@_shortcut_option("week", "-w", "Reports activity for the current week.")
-@_shortcut_option("day", "-d", "Reports activity for the current day.")
-@_shortcut_option("all", "-a", "Reports all activities.")
 @click.option(
     "-p",
     "--project",
@@ -752,11 +756,6 @@ def report(
     tags,
     ignore_projects,
     ignore_tags,
-    year,
-    month,
-    week,
-    day,
-    all,
     output_format,
     pager,
     aggregated=False,
@@ -888,11 +887,6 @@ def report(
         tags,
         ignore_projects,
         ignore_tags,
-        year=year,
-        month=month,
-        week=week,
-        day=day,
-        all=all,
         include_partial_frames=include_partial_frames,
     )
 
@@ -1018,26 +1012,17 @@ def report(
     "-f",
     "--from",
     "from_",
-    cls=MutuallyExclusiveOption,
     type=DateTime,
     default=arrow.now().shift(days=-7),
-    mutually_exclusive=_SHORTCUT_OPTIONS,
     help="The date from when the report should start. Defaults to seven days ago.",
 )
 @click.option(
     "-t",
     "--to",
-    cls=MutuallyExclusiveOption,
     type=DateTime,
     default=arrow.now(),
-    mutually_exclusive=_SHORTCUT_OPTIONS,
     help="The date at which the report should stop (inclusive). Defaults to tomorrow.",
 )
-@_shortcut_option("year", "-y", "Reports activity for the current year.")
-@_shortcut_option("quarter", "-q", "Reports activity for the current quarter.")
-@_shortcut_option("month", "-m", "Reports activity for the current month.")
-@_shortcut_option("week", "-w", "Reports activity for the current week.")
-@_shortcut_option("day", "-d", "Reports activity for the current day.")
 @click.option(
     "-p",
     "--project",
@@ -1092,7 +1077,7 @@ def report(
     default=None,
     help="(Don't) view output through a pager.",
 )
-@_period_options(foreign=("day", "week", "month", "quarter", "year"))
+@_period_options(allow_all=False)
 @click.pass_obj
 @click.pass_context
 @catch_watson_error
@@ -1249,12 +1234,6 @@ def aggregate(ctx, watson, current, from_, to, projects, tags, output_format, pa
     default=arrow.now(),
     help="The date at which the log should stop (inclusive). Defaults to tomorrow.",
 )
-@_shortcut_option("year", "-y", "Reports activity for the current year.")
-@_shortcut_option("quarter", "-q", "Reports activity for the current quarter.")
-@_shortcut_option("month", "-m", "Reports activity for the current month.")
-@_shortcut_option("week", "-w", "Reports activity for the current week.")
-@_shortcut_option("day", "-d", "Reports activity for the current day.")
-@_shortcut_option("all", "-a", "Reports all activities.")
 @click.option(
     "-p",
     "--project",
@@ -1338,11 +1317,6 @@ def log(
     tags,
     ignore_projects,
     ignore_tags,
-    year,
-    month,
-    week,
-    day,
-    all,
     output_format,
     pager,
 ):
@@ -1414,12 +1388,6 @@ def log(
     02cb269,2014-04-16 09:53,2014-04-16 12:43,apollo11,wheels
     1070ddb,2014-04-16 13:48,2014-04-16 16:17,voyager1,"antenna, sensors"
     """  # noqa
-    for start_time in (_ for _ in [day, week, month, year, all] if _ is not None):
-        from_ = start_time
-
-    if from_ > to:
-        raise click.ClickException("'from' must be anterior to 'to'")
-
     if bool(
         projects
         and ignore_projects
