@@ -31,9 +31,11 @@ from .utils import (
     frames_to_csv,
     frames_to_json,
     get_frame_from_argument,
+    get_period_range,
     get_start_time_for_period,
     json_arrow_encoder,
     options,
+    parse_period_offsets,
     parse_tags,
     safe_save,
     sorted_groupby,
@@ -56,13 +58,15 @@ class MutuallyExclusiveOption(click.Option):
 
     def _raise_exclusive_error(self):
         # Use self.opts[-1] instead of self.name to handle options with a
-        # different internal name.
-        self.mutually_exclusive.add(self.opts[-1].strip("-"))
+        # different internal name. Build the list from a copy: mutating
+        # self.mutually_exclusive would make this option exclusive with
+        # itself on later invocations in the same process.
+        names = self.mutually_exclusive | {self.opts[-1].strip("-")}
         raise click.ClickException(
             style(
                 "error",
                 "The following options are mutually exclusive: {options}".format(
-                    options=", ".join([f"`--{_}`" for _ in self.mutually_exclusive])
+                    options=", ".join([f"`--{_}`" for _ in sorted(names)])
                 ),
             )
         )
@@ -508,8 +512,104 @@ def status(watson, project, tags, elapsed):
     )
 
 
-_SHORTCUT_OPTIONS = ["all", "year", "month", "luna", "week", "day"]
+_SHORTCUT_OPTIONS = ["all", "year", "quarter", "month", "luna", "week", "day"]
 _SHORTCUT_OPTIONS_VALUES = {k: get_start_time_for_period(k) for k in _SHORTCUT_OPTIONS}
+
+# Shortcuts that name a fixed-length calendar period --prev/--range can step by
+_PERIOD_SHORTCUTS = ["day", "week", "month", "quarter", "year"]
+
+_PREV_HELP = (
+    "Report on earlier periods of the --day/--week/--month/--quarter/--year "
+    "shortcut given, counting back from the current one (0): START alone is "
+    "the single period START ago, START-END runs from START periods ago "
+    "through END periods ago. E.g. `-w --prev 1` is last week."
+)
+_RANGE_HELP = (
+    "Like --prev, but END defaults to 0: `-w --range 3` is the past 3 weeks "
+    "plus the current one."
+)
+
+
+def _shortcut_option(name, short, help):
+    return click.option(
+        short,
+        f"--{name}",
+        cls=MutuallyExclusiveOption,
+        type=DateTime,
+        flag_value=_SHORTCUT_OPTIONS_VALUES[name],
+        mutually_exclusive=[o for o in _SHORTCUT_OPTIONS if o != name],
+        help=help,
+    )
+
+
+def _period_options(foreign=("quarter",)):
+    """Add `--prev`/`--range` to a timespan command and resolve its timespan.
+
+    The wrapper turns `--prev`/`--range`, and the shortcut flags listed in
+    `foreign` (declared on the command but unknown to its body), into plain
+    `from_`/`to` values before calling the command. The body therefore keeps
+    working with `from_`/`to` and the shortcut flags it already knew about.
+    """
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            ctx = click.get_current_context()
+            prev = kwargs.pop("prev", None)
+            range_ = kwargs.pop("range_", None)
+            own = {name: kwargs.pop(name, None) for name in foreign}
+            shortcuts = {
+                name: own[name] if name in own else kwargs.get(name)
+                for name in _SHORTCUT_OPTIONS
+            }
+            active = [name for name, value in shortcuts.items() if value is not None]
+
+            if prev is None and range_ is None:
+                # Plain shortcut use: shortcuts the body doesn't know become from_
+                for name in active:
+                    if name in own:
+                        kwargs["from_"] = own[name]
+                return func(*args, **kwargs)
+
+            flag, spec = ("--prev", prev) if prev is not None else ("--range", range_)
+            if prev is not None and range_ is not None:
+                raise click.UsageError("--prev and --range are mutually exclusive.")
+            for param, opt in (("from_", "--from"), ("to", "--to")):
+                if (
+                    ctx.get_parameter_source(param)
+                    == click.core.ParameterSource.COMMANDLINE
+                ):
+                    raise click.UsageError(f"{flag} can't be combined with {opt}.")
+            if len(active) != 1 or active[0] not in _PERIOD_SHORTCUTS:
+                raise click.UsageError(
+                    f"{flag} needs exactly one of --day, --week, --month, "
+                    "--quarter or --year."
+                )
+            try:
+                start, end = parse_period_offsets(
+                    spec, default_end=0 if flag == "--range" else None
+                )
+            except ValueError as e:
+                raise click.BadParameter(str(e), param_hint=flag) from None
+
+            week_start = ctx.obj.config.get("options", "week_start", "monday")
+            kwargs["from_"], kwargs["to"] = get_period_range(
+                active[0], start, end, week_start
+            )
+            for name in _SHORTCUT_OPTIONS:
+                if name in kwargs:
+                    kwargs[name] = None
+            return func(*args, **kwargs)
+
+        wrapper = click.option(
+            "--range", "range_", metavar="START[-END]", help=_RANGE_HELP
+        )(wrapper)
+        wrapper = click.option(
+            "--prev", "prev", metavar="START[-END]", help=_PREV_HELP
+        )(wrapper)
+        return wrapper
+
+    return decorator
 
 
 @cli.command()
@@ -539,60 +639,13 @@ _SHORTCUT_OPTIONS_VALUES = {k: get_start_time_for_period(k) for k in _SHORTCUT_O
     mutually_exclusive=_SHORTCUT_OPTIONS,
     help="The date at which the report should stop (inclusive). Defaults to tomorrow.",
 )
-@click.option(
-    "-y",
-    "--year",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["year"],
-    mutually_exclusive=["day", "week", "luna", "month", "all"],
-    help="Reports activity for the current year.",
-)
-@click.option(
-    "-m",
-    "--month",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["month"],
-    mutually_exclusive=["day", "week", "luna", "year", "all"],
-    help="Reports activity for the current month.",
-)
-@click.option(
-    "-l",
-    "--luna",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["luna"],
-    mutually_exclusive=["day", "week", "month", "year", "all"],
-    help="Reports activity for the current moon cycle.",
-)
-@click.option(
-    "-w",
-    "--week",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["week"],
-    mutually_exclusive=["day", "month", "luna", "year", "all"],
-    help="Reports activity for the current week.",
-)
-@click.option(
-    "-d",
-    "--day",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["day"],
-    mutually_exclusive=["week", "month", "luna", "year", "all"],
-    help="Reports activity for the current day.",
-)
-@click.option(
-    "-a",
-    "--all",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["all"],
-    mutually_exclusive=["day", "week", "month", "luna", "year"],
-    help="Reports all activities.",
-)
+@_shortcut_option("year", "-y", "Reports activity for the current year.")
+@_shortcut_option("quarter", "-q", "Reports activity for the current quarter.")
+@_shortcut_option("month", "-m", "Reports activity for the current month.")
+@_shortcut_option("luna", "-l", "Reports activity for the current moon cycle.")
+@_shortcut_option("week", "-w", "Reports activity for the current week.")
+@_shortcut_option("day", "-d", "Reports activity for the current day.")
+@_shortcut_option("all", "-a", "Reports all activities.")
 @click.option(
     "-p",
     "--project",
@@ -663,6 +716,7 @@ _SHORTCUT_OPTIONS_VALUES = {k: get_start_time_for_period(k) for k in _SHORTCUT_O
     default=None,
     help="(Don't) view output through a pager.",
 )
+@_period_options()
 @click.pass_obj
 @catch_watson_error
 def report(
@@ -701,6 +755,13 @@ def report(
     respectively.
     The shortcut `--luna` sets the timespan to the current moon cycle with
     the last full moon marking the start of the cycle.
+
+    `--quarter` covers the current calendar quarter. To look further back,
+    combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
+    `--prev START[-END]`, which counts periods back from the current one (0):
+    `--week --prev 1` is last week and `--week --prev 3-0` the past three
+    weeks plus this one. `--range START[-END]` is the same, except END
+    defaults to 0, so `--week --range 3` equals `--week --prev 3-0`.
 
     You can limit the report to a project or a tag using the `--project`,
     `--tag`, `--ignore-project` and `--ignore-tag` options. They can be
@@ -952,6 +1013,11 @@ def report(
     mutually_exclusive=_SHORTCUT_OPTIONS,
     help="The date at which the report should stop (inclusive). Defaults to tomorrow.",
 )
+@_shortcut_option("year", "-y", "Reports activity for the current year.")
+@_shortcut_option("quarter", "-q", "Reports activity for the current quarter.")
+@_shortcut_option("month", "-m", "Reports activity for the current month.")
+@_shortcut_option("week", "-w", "Reports activity for the current week.")
+@_shortcut_option("day", "-d", "Reports activity for the current day.")
 @click.option(
     "-p",
     "--project",
@@ -1006,6 +1072,7 @@ def report(
     default=None,
     help="(Don't) view output through a pager.",
 )
+@_period_options(foreign=("day", "week", "month", "quarter", "year"))
 @click.pass_obj
 @click.pass_context
 @catch_watson_error
@@ -1019,6 +1086,14 @@ def aggregate(ctx, watson, current, from_, to, projects, tags, output_format, pa
     By default, the time spent the last 7 days is printed. This timespan
     can be controlled with the `--from` and `--to` arguments. The dates
     must have the format `YEAR-MONTH-DAY`, like: `2014-05-19`.
+
+    The shortcuts `--day`, `--week`, `--month`, `--quarter` and `--year`
+    start the report at the beginning of the current day, week, month,
+    quarter or year. To look further back, combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
+    `--prev START[-END]`, which counts periods back from the current one (0):
+    `--week --prev 1` is last week and `--week --prev 3-0` the past three
+    weeks plus this one. `--range START[-END]` is the same, except END
+    defaults to 0, so `--week --range 3` equals `--week --prev 3-0`.
 
     You can limit the report to a project or a tag using the `--project` and
     `--tag` options. They can be specified several times each to add multiple
@@ -1154,60 +1229,13 @@ def aggregate(ctx, watson, current, from_, to, projects, tags, output_format, pa
     default=arrow.now(),
     help="The date at which the log should stop (inclusive). Defaults to tomorrow.",
 )
-@click.option(
-    "-y",
-    "--year",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["year"],
-    mutually_exclusive=["day", "week", "month", "all"],
-    help="Reports activity for the current year.",
-)
-@click.option(
-    "-m",
-    "--month",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["month"],
-    mutually_exclusive=["day", "week", "year", "all"],
-    help="Reports activity for the current month.",
-)
-@click.option(
-    "-l",
-    "--luna",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["luna"],
-    mutually_exclusive=["day", "week", "month", "year", "all"],
-    help="Reports activity for the current moon cycle.",
-)
-@click.option(
-    "-w",
-    "--week",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["week"],
-    mutually_exclusive=["day", "month", "year", "all"],
-    help="Reports activity for the current week.",
-)
-@click.option(
-    "-d",
-    "--day",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["day"],
-    mutually_exclusive=["week", "month", "year", "all"],
-    help="Reports activity for the current day.",
-)
-@click.option(
-    "-a",
-    "--all",
-    cls=MutuallyExclusiveOption,
-    type=DateTime,
-    flag_value=_SHORTCUT_OPTIONS_VALUES["all"],
-    mutually_exclusive=["day", "week", "month", "year"],
-    help="Reports all activities.",
-)
+@_shortcut_option("year", "-y", "Reports activity for the current year.")
+@_shortcut_option("quarter", "-q", "Reports activity for the current quarter.")
+@_shortcut_option("month", "-m", "Reports activity for the current month.")
+@_shortcut_option("luna", "-l", "Reports activity for the current moon cycle.")
+@_shortcut_option("week", "-w", "Reports activity for the current week.")
+@_shortcut_option("day", "-d", "Reports activity for the current day.")
+@_shortcut_option("all", "-a", "Reports all activities.")
 @click.option(
     "-p",
     "--project",
@@ -1278,6 +1306,7 @@ def aggregate(ctx, watson, current, from_, to, projects, tags, output_format, pa
     default=None,
     help="(Don't) view output through a pager.",
 )
+@_period_options()
 @click.pass_obj
 @catch_watson_error
 def log(
@@ -1312,6 +1341,13 @@ def log(
     respectively.
     The shortcut `--luna` sets the timespan to the current moon cycle with
     the last full moon marking the start of the cycle.
+
+    `--quarter` covers the current calendar quarter. To look further back,
+    combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
+    `--prev START[-END]`, which counts periods back from the current one (0):
+    `--week --prev 1` is last week and `--week --prev 3-0` the past three
+    weeks plus this one. `--range START[-END]` is the same, except END
+    defaults to 0, so `--week --range 3` equals `--week --prev 3-0`.
 
     If you are outputting to the terminal, you can selectively enable a pager
     through the `--pager` option.

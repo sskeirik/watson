@@ -5,6 +5,7 @@ import itertools
 import json
 import operator
 import os
+import re
 import shutil
 import tempfile
 import time
@@ -163,9 +164,10 @@ def get_frame_from_argument(watson, arg):
         ) from None
 
 
-def get_start_time_for_period(period):
+def get_start_time_for_period(period, now=None):
     # Using now() from datetime instead of arrow for mocking compatibility.
-    now = arrow.Arrow.fromdatetime(datetime.datetime.now())
+    if now is None:
+        now = arrow.Arrow.fromdatetime(datetime.datetime.now())
     date = now.date()
 
     day = date.day
@@ -180,6 +182,8 @@ def get_start_time_for_period(period):
         start_time = arrow.Arrow.fromdate(now.shift(days=-weekday).date())
     elif period == "month":
         start_time = arrow.Arrow(year, month, 1)
+    elif period == "quarter":
+        start_time = arrow.Arrow(year, (month - 1) // 3 * 3 + 1, 1)
     elif period == "luna":
         start_time = get_last_full_moon(now)
     elif period == "year":
@@ -193,7 +197,70 @@ def get_start_time_for_period(period):
     return start_time
 
 
-def apply_weekday_offset(start_time, week_start):
+# Calendar periods that --prev/--range can step through, as arrow shift units
+PERIOD_SHIFTS = {
+    "day": ("days", 1),
+    "week": ("weeks", 1),
+    "month": ("months", 1),
+    "quarter": ("months", 3),
+    "year": ("years", 1),
+}
+
+_PERIOD_OFFSETS_RE = re.compile(r"^(\d+)(?:-(\d+))?$")
+
+
+def parse_period_offsets(spec, default_end=None):
+    """Parse a ``START[-END]`` period offset spec into ``(start, end)``.
+
+    Offsets count back from the current period (0 = current). Without an
+    explicit END, ``default_end`` is used, or START itself when it is None
+    (a single period). Raises ValueError for malformed specs and when START
+    is less than END (START must be the older period).
+    """
+    match = _PERIOD_OFFSETS_RE.match(spec.strip())
+    if not match:
+        raise ValueError(
+            f"'{spec}' is not a valid offset; expected START or START-END, "
+            "e.g. 3 or 3-0"
+        )
+    start = int(match.group(1))
+    if match.group(2) is not None:
+        end = int(match.group(2))
+    else:
+        end = start if default_end is None else default_end
+    if start < end:
+        raise ValueError(
+            f"start offset {start} is less than end offset {end}; offsets count "
+            f"back in time, so write {end}-{start} instead"
+        )
+    return start, end
+
+
+def get_period_range(period, start_offset, end_offset, week_start="monday", now=None):
+    """Return ``(from_, to)`` covering calendar periods ``start_offset`` back
+    through ``end_offset`` back (0 = the current period).
+
+    ``from_`` is the first instant of the older period and ``to`` the last
+    instant of the newer one, clamped to now when it is the current period.
+    """
+    from .timezone import local_tz_info
+
+    if now is None:
+        # datetime.now() rather than arrow.now() for mocking compatibility
+        now = arrow.Arrow.fromdatetime(datetime.datetime.now(local_tz_info()))
+    unit, size = PERIOD_SHIFTS[period]
+    base = get_start_time_for_period(period, now).replace(tzinfo=local_tz_info())
+    if period == "week":
+        base = apply_weekday_offset(base, week_start, now)
+
+    from_ = base.shift(**{unit: -start_offset * size})
+    to = base.shift(**{unit: -(end_offset - 1) * size}).shift(microseconds=-1)
+    if end_offset == 0:
+        to = min(to, now)
+    return from_, to
+
+
+def apply_weekday_offset(start_time, week_start, now=None):
     """
     Apply the offset required to move the start date `start_time` of a week
     starting on Monday to that of a week starting on `week_start`.
@@ -217,7 +284,8 @@ def apply_weekday_offset(start_time, week_start):
     new_start = week_start.lower()
     if new_start not in weekdays:
         return start_time
-    now = datetime.datetime.now()
+    if now is None:
+        now = datetime.datetime.now()
     offset = weekdays[new_start] - 7 * (weekdays[new_start] > now.weekday())
     return start_time.shift(days=offset)
 

@@ -23,9 +23,11 @@ from watson.utils import (
     flatten_report_for_csv,
     frames_to_csv,
     frames_to_json,
+    get_period_range,
     get_start_time_for_period,
     json_arrow_encoder,
     make_json_writer,
+    parse_period_offsets,
     parse_tags,
     safe_save,
     sorted_groupby,
@@ -428,3 +430,107 @@ def test_json_arrow_encoder():
 
     now = arrow.utcnow()
     assert json_arrow_encoder(now) == now.for_json()
+
+
+# Report periods: -q/--quarter, --prev, --range
+
+
+@pytest.mark.parametrize(
+    "now, start_time",
+    [
+        (_dt(2016, 2, 29), _dt(2016, 1, 1)),
+        (_dt(2016, 4, 1), _dt(2016, 4, 1)),
+        (_dt(2016, 6, 30), _dt(2016, 4, 1)),
+        (_dt(2016, 8, 15), _dt(2016, 7, 1)),
+        (_dt(2016, 12, 31), _dt(2016, 10, 1)),
+    ],
+)
+def test_get_start_time_for_quarter(now, start_time):
+    with mock_datetime(now, datetime):
+        assert get_start_time_for_period("quarter").datetime == start_time
+
+
+@pytest.mark.parametrize(
+    "spec, default_end, expected",
+    [
+        ("3", None, (3, 3)),
+        ("3", 0, (3, 0)),
+        ("3-0", None, (3, 0)),
+        ("3-1", 0, (3, 1)),
+        ("0", None, (0, 0)),
+        (" 12-12 ", None, (12, 12)),
+    ],
+)
+def test_parse_period_offsets(spec, default_end, expected):
+    assert parse_period_offsets(spec, default_end) == expected
+
+
+@pytest.mark.parametrize("spec", ["1-3", "x", "-1", "1-", "1--2", "", "1.5"])
+def test_parse_period_offsets_invalid(spec):
+    with pytest.raises(ValueError):
+        parse_period_offsets(spec)
+
+
+_FMT = "YYYY-MM-DD HH:mm:ss"
+
+
+def _now(*args):
+    """A fixed "now" in the local time zone (set TZ first)."""
+    from watson.timezone import local_tz_info
+
+    return arrow.Arrow(*args, tzinfo=local_tz_info())
+
+
+@pytest.mark.parametrize(
+    "period, start, end, expected_from, expected_to",
+    [
+        # Friday 2018-12-07, 15:00 UTC
+        ("day", 0, 0, "2018-12-07 00:00:00", "2018-12-07 15:00:00"),
+        ("day", 1, 1, "2018-12-06 00:00:00", "2018-12-06 23:59:59"),
+        ("week", 3, 3, "2018-11-12 00:00:00", "2018-11-18 23:59:59"),
+        ("week", 3, 0, "2018-11-12 00:00:00", "2018-12-07 15:00:00"),
+        ("week", 3, 1, "2018-11-12 00:00:00", "2018-12-02 23:59:59"),
+        ("month", 1, 1, "2018-11-01 00:00:00", "2018-11-30 23:59:59"),
+        ("month", 12, 12, "2017-12-01 00:00:00", "2017-12-31 23:59:59"),
+        ("quarter", 1, 1, "2018-07-01 00:00:00", "2018-09-30 23:59:59"),
+        ("quarter", 4, 0, "2017-10-01 00:00:00", "2018-12-07 15:00:00"),
+        ("year", 1, 1, "2017-01-01 00:00:00", "2017-12-31 23:59:59"),
+    ],
+)
+def test_get_period_range(monkeypatch, period, start, end, expected_from, expected_to):
+    monkeypatch.setenv("TZ", "UTC")
+    from_, to = get_period_range(period, start, end, now=_now(2018, 12, 7, 15))
+    assert from_.format(_FMT) == expected_from
+    assert to.format(_FMT) == expected_to
+
+
+def test_get_period_range_rollover_into_previous_year(monkeypatch):
+    monkeypatch.setenv("TZ", "UTC")
+    now = _now(2019, 2, 10)
+    assert [d.format(_FMT) for d in get_period_range("month", 2, 2, now=now)] == [
+        "2018-12-01 00:00:00",
+        "2018-12-31 23:59:59",
+    ]
+    assert [d.format(_FMT) for d in get_period_range("quarter", 1, 1, now=now)] == [
+        "2018-10-01 00:00:00",
+        "2018-12-31 23:59:59",
+    ]
+
+
+def test_get_period_range_week_start(monkeypatch):
+    monkeypatch.setenv("TZ", "UTC")
+    # Friday 2018-12-07; with Sunday weeks the current one began 2018-12-02
+    from_, to = get_period_range("week", 1, 1, "sunday", now=_now(2018, 12, 7))
+    assert from_.format(_FMT) == "2018-11-25 00:00:00"
+    assert to.format(_FMT) == "2018-12-01 23:59:59"
+
+
+def test_get_period_range_keeps_local_midnight_across_dst(monkeypatch):
+    monkeypatch.setenv("TZ", "America/New_York")
+    # The month before 2018-11-10 starts on EDT, ends on EST
+    from_, to = get_period_range("month", 1, 1, now=_now(2018, 11, 10))
+    assert from_.format(_FMT + " ZZ") == "2018-10-01 00:00:00 -04:00"
+    assert to.format(_FMT + " ZZ") == "2018-10-31 23:59:59 -04:00"
+    from_, to = get_period_range("month", 1, 1, now=_now(2018, 12, 10))
+    assert from_.format(_FMT + " ZZ") == "2018-11-01 00:00:00 -04:00"
+    assert to.format(_FMT + " ZZ") == "2018-11-30 23:59:59 -05:00"

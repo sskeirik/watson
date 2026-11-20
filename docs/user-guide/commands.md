@@ -45,6 +45,14 @@ By default, the time spent the last 7 days is printed. This timespan
 can be controlled with the `--from` and `--to` arguments. The dates
 must have the format `YEAR-MONTH-DAY`, like: `2014-05-19`.
 
+The shortcuts `--day`, `--week`, `--month`, `--quarter` and `--year`
+start the report at the beginning of the current day, week, month,
+quarter or year. To look further back, combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
+`--prev START[-END]`, which counts periods back from the current one (0):
+`--week --prev 1` is last week and `--week --prev 3-0` the past three
+weeks plus this one. `--range START[-END]` is the same, except END
+defaults to 0, so `--week --range 3` equals `--week --prev 3-0`.
+
 You can limit the report to a project or a tag using the `--project` and
 `--tag` options. They can be specified several times each to add multiple
 projects or tags to the report.
@@ -111,11 +119,18 @@ Flag | Help
 `-c, --current / -C, --no-current` | (Don't) include currently running frame in report.
 `-f, --from DATETIME` | The date from when the report should start. Defaults to seven days ago.
 `-t, --to DATETIME` | The date at which the report should stop (inclusive). Defaults to tomorrow.
+`-y, --year` | Reports activity for the current year.
+`-q, --quarter` | Reports activity for the current quarter.
+`-m, --month` | Reports activity for the current month.
+`-w, --week` | Reports activity for the current week.
+`-d, --day` | Reports activity for the current day.
 `-p, --project TEXT` | Reports activity only for the given project. You can add other projects by using this option several times.
 `-T, --tag TEXT` | Reports activity only for frames containing the given tag. You can add several tags by using this option multiple times
 `-j, --json` | Format output in JSON instead of plain text
 `-s, --csv` | Format output in CSV instead of plain text
 `-g, --pager / -G, --no-pager` | (Don't) view output through a pager.
+`--prev START[-END]` | Report on earlier periods of the --day/--week/--month/--quarter/--year shortcut given, counting back from the current one (0): START alone is the single period START ago, START-END runs from START periods ago through END periods ago. E.g. `-w --prev 1` is last week.
+`--range START[-END]` | Like --prev, but END defaults to 0: `-w --range 3` is the past 3 weeks plus the current one.
 `--help` | Show this message and exit.
 
 ## `cancel`
@@ -243,6 +258,13 @@ respectively.
 The shortcut `--luna` sets the timespan to the current moon cycle with
 the last full moon marking the start of the cycle.
 
+`--quarter` covers the current calendar quarter. To look further back,
+combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
+`--prev START[-END]`, which counts periods back from the current one (0):
+`--week --prev 1` is last week and `--week --prev 3-0` the past three
+weeks plus this one. `--range START[-END]` is the same, except END
+defaults to 0, so `--week --range 3` equals `--week --prev 3-0`.
+
 If you are outputting to the terminal, you can selectively enable a pager
 through the `--pager` option.
 
@@ -301,6 +323,7 @@ Flag | Help
 `-f, --from DATETIME` | The date from when the log should start. Defaults to seven days ago.
 `-t, --to DATETIME` | The date at which the log should stop (inclusive). Defaults to tomorrow.
 `-y, --year` | Reports activity for the current year.
+`-q, --quarter` | Reports activity for the current quarter.
 `-m, --month` | Reports activity for the current month.
 `-l, --luna` | Reports activity for the current moon cycle.
 `-w, --week` | Reports activity for the current week.
@@ -313,6 +336,8 @@ Flag | Help
 `-j, --json` | Format output in JSON instead of plain text
 `-s, --csv` | Format output in CSV instead of plain text
 `-g, --pager / -G, --no-pager` | (Don't) view output through a pager.
+`--prev START[-END]` | Report on earlier periods of the --day/--week/--month/--quarter/--year shortcut given, counting back from the current one (0): START alone is the single period START ago, START-END runs from START periods ago through END periods ago. E.g. `-w --prev 1` is last week.
+`--range START[-END]` | Like --prev, but END defaults to 0: `-w --range 3` is the past 3 weeks plus the current one.
 `--help` | Show this message and exit.
 
 ## `merge`
@@ -466,6 +491,13 @@ respectively.
 The shortcut `--luna` sets the timespan to the current moon cycle with
 the last full moon marking the start of the cycle.
 
+`--quarter` covers the current calendar quarter. To look further back,
+combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
+`--prev START[-END]`, which counts periods back from the current one (0):
+`--week --prev 1` is last week and `--week --prev 3-0` the past three
+weeks plus this one. `--range START[-END]` is the same, except END
+defaults to 0, so `--week --range 3` equals `--week --prev 3-0`.
+
 You can limit the report to a project or a tag using the `--project`,
 `--tag`, `--ignore-project` and `--ignore-tag` options. They can be
 specified several times each to add or ignore multiple projects or
@@ -562,6 +594,7 @@ Flag | Help
 `-f, --from DATETIME` | The date from when the report should start. Defaults to seven days ago.
 `-t, --to DATETIME` | The date at which the report should stop (inclusive). Defaults to tomorrow.
 `-y, --year` | Reports activity for the current year.
+`-q, --quarter` | Reports activity for the current quarter.
 `-m, --month` | Reports activity for the current month.
 `-l, --luna` | Reports activity for the current moon cycle.
 `-w, --week` | Reports activity for the current week.
@@ -574,6 +607,8 @@ Flag | Help
 `-j, --json` | Format output in JSON instead of plain text
 `-s, --csv` | Format output in CSV instead of plain text
 `-g, --pager / -G, --no-pager` | (Don't) view output through a pager.
+`--prev START[-END]` | Report on earlier periods of the --day/--week/--month/--quarter/--year shortcut given, counting back from the current one (0): START alone is the single period START ago, START-END runs from START periods ago through END periods ago. E.g. `-w --prev 1` is last week.
+`--range START[-END]` | Like --prev, but END defaults to 0: `-w --range 3` is the past 3 weeks plus the current one.
 `--help` | Show this message and exit.
 
 ## `restart`

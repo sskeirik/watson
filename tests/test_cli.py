@@ -232,3 +232,136 @@ def test_restart_valid_time(runner, watson, mocker, at_dt):
     # Test that the last frame can be restarted
     result = runner.invoke(cli.restart, ["--at", at_dt], obj=watson)
     assert result.exit_code == 0
+
+
+# watson report/log/aggregate: -q/--quarter, --prev, --range
+
+
+@pytest.fixture
+def period_watson(watson, mocker, monkeypatch):
+    """A Watson with one frame per week around a fixed "now" of Fri 2018-12-07."""
+    monkeypatch.setenv("TZ", "UTC")
+    from watson import utils
+
+    real = utils.get_period_range
+    now = arrow.Arrow(2018, 12, 7, 15, tzinfo=local_tz_info())
+    mocker.patch(
+        "watson.cli.get_period_range",
+        side_effect=lambda *a, **k: real(*a, now=now, **k),
+    )
+    for day, project in [
+        ("2018-11-13", "three-weeks-ago"),
+        ("2018-11-20", "two-weeks-ago"),
+        ("2018-11-27", "last-week"),
+        ("2018-12-04", "this-week"),
+        ("2018-09-12", "last-quarter"),
+    ]:
+        start = arrow.get(f"{day}T10:00:00+00:00")
+        watson.frames.add(project, start, start.shift(hours=1))
+    watson.save()
+    return watson
+
+
+def _report_json(runner, watson, args):
+    import json
+
+    result = runner.invoke(cli.report, ["--json", *args], obj=watson)
+    assert result.exit_code == 0, result.output
+    report = json.loads(result.output)
+    projects = sorted(p["name"] for p in report["projects"])
+    return report["timespan"]["from"][:10], report["timespan"]["to"][:10], projects
+
+
+@pytest.mark.parametrize(
+    "args, expected",
+    [
+        (["-w", "--prev", "3"], ("2018-11-12", "2018-11-18", ["three-weeks-ago"])),
+        (
+            ["-w", "--prev", "3-0"],
+            (
+                "2018-11-12",
+                "2018-12-07",
+                ["last-week", "this-week", "three-weeks-ago", "two-weeks-ago"],
+            ),
+        ),
+        (
+            ["-w", "--range", "1"],
+            ("2018-11-26", "2018-12-07", ["last-week", "this-week"]),
+        ),
+        (
+            ["-w", "--range", "3-2"],
+            ("2018-11-12", "2018-11-25", ["three-weeks-ago", "two-weeks-ago"]),
+        ),
+        (["-w", "--prev", "0"], ("2018-12-03", "2018-12-07", ["this-week"])),
+        (["-q", "--prev", "1"], ("2018-07-01", "2018-09-30", ["last-quarter"])),
+        (
+            ["-m", "--prev", "1"],
+            (
+                "2018-11-01",
+                "2018-11-30",
+                ["last-week", "three-weeks-ago", "two-weeks-ago"],
+            ),
+        ),
+    ],
+)
+def test_report_period_offsets(runner, period_watson, args, expected):
+    assert _report_json(runner, period_watson, args) == expected
+
+
+def test_report_quarter_shortcut(runner, watson):
+    from watson.utils import get_start_time_for_period
+
+    result = runner.invoke(cli.report, ["--json", "-q"], obj=watson)
+    assert result.exit_code == 0, result.output
+    expected = get_start_time_for_period("quarter").format("YYYY-MM-DD")
+    assert expected in result.output
+
+
+@pytest.mark.parametrize(
+    "args, message",
+    [
+        (["-w", "--prev", "1-3"], "start offset 1 is less than end offset 3"),
+        (["--prev", "2"], "needs exactly one of"),
+        (["-l", "--prev", "1"], "needs exactly one of"),
+        (["-a", "--range", "1"], "needs exactly one of"),
+        (["-w", "--prev", "1", "--range", "2"], "mutually exclusive"),
+        (["--prev", "1", "--from", "2018-01-01"], "can't be combined with --from"),
+        (["--range", "1", "--to", "2018-01-01"], "can't be combined with --to"),
+        (["-w", "--prev", "x"], "not a valid offset"),
+        (["-w", "-q"], "mutually exclusive"),
+    ],
+)
+@pytest.mark.parametrize("command", ["report", "log", "aggregate"])
+def test_period_offsets_errors(runner, watson, command, args, message):
+    if command == "aggregate" and args[0] in ("-l", "-a"):
+        pytest.skip("aggregate has no --luna/--all")
+    result = runner.invoke(getattr(cli, command), args, obj=watson)
+    assert result.exit_code != 0
+    assert message in result.output
+
+
+def test_log_period_offsets(runner, period_watson):
+    result = runner.invoke(cli.log, ["--csv", "-w", "--range", "1"], obj=period_watson)
+    assert result.exit_code == 0, result.output
+    rows = [line for line in result.output.splitlines()[1:] if line]
+    projects = sorted(row.split(",")[3] for row in rows)
+    assert projects == ["last-week", "this-week"]
+
+
+def test_aggregate_period_offsets(runner, period_watson):
+    result = runner.invoke(
+        cli.aggregate, ["--csv", "-w", "--prev", "1"], obj=period_watson
+    )
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.output.splitlines() if line]
+    assert lines[1].startswith("2018-11-27 00:00:00,2018-11-27 23:59:59,last-week")
+    assert len(lines) == 2
+
+
+def test_aggregate_week_shortcut(runner, watson):
+    from watson.utils import get_start_time_for_period
+
+    result = runner.invoke(cli.aggregate, ["--json", "-w"], obj=watson)
+    assert result.exit_code == 0, result.output
+    expected = get_start_time_for_period("week").format("YYYY-MM-DD")
+    assert f'"from": "{expected}' in result.output
