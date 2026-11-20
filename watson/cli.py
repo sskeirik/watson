@@ -43,6 +43,19 @@ from .utils import (
 )
 
 
+def _extras_hook(name, *args):
+    """Call ``watson.extras.review.<name>``; it must never break a command."""
+    try:
+        from .extras import review
+
+        return getattr(review, name)(*args)
+    except click.exceptions.Abort:
+        raise  # Ctrl-C / EOF at a review prompt aborts the command
+    except Exception as e:
+        click.echo(style("error", f"(timer review {name} failed: {e})"), err=True)
+        return None
+
+
 class MutuallyExclusiveOption(click.Option):
     def __init__(self, *args, **kwargs):
         self.mutually_exclusive = set(kwargs.pop("mutually_exclusive", []))
@@ -275,6 +288,10 @@ def start(ctx, watson, confirm_new_project, confirm_new_tag, args, at_, gap_=Tru
     if watson.config.getboolean("options", "confirm_new_tag") or confirm_new_tag:
         confirm_tags(tags, watson.tags)
 
+    # Pending timer reviews: may stop a forgotten frame at the right time
+    # before stop_on_start would stop it now.
+    _extras_hook("on_start", ctx, watson)
+
     if project and watson.is_started and not gap_:
         current = watson.current
         errmsg = (
@@ -329,6 +346,7 @@ def stop(watson, at_):
         )
     )
     watson.save()
+    _extras_hook("on_stop", watson, frame)
 
 
 @cli.command(context_settings={"ignore_unknown_options": True})
@@ -451,6 +469,11 @@ def cancel(watson):
     watson.save()
 
 
+def _status_notices(watson):
+    for line in _extras_hook("status_lines", watson) or []:
+        click.echo(style("time", line))
+
+
 @cli.command()
 @click.option("-p", "--project", is_flag=True, help="only output project")
 @click.option("-t", "--tags", is_flag=True, help="only show tags")
@@ -479,6 +502,7 @@ def status(watson, project, tags, elapsed):
     """
     if not watson.is_started:
         click.echo("No project started.")
+        _status_notices(watson)
         return
 
     current = watson.current
@@ -510,6 +534,7 @@ def status(watson, project, tags, elapsed):
             style("time", current["start"].strftime(timefmt)),
         )
     )
+    _status_notices(watson)
 
 
 _SHORTCUT_OPTIONS = ["all", "year", "quarter", "month", "luna", "week", "day"]
@@ -2161,3 +2186,15 @@ def rename(watson, rename_type, old_name, new_name):
                 f'you supplied "{rename_type}"',
             )
         )
+
+
+def _register_extras():
+    try:
+        from .extras.commands import register
+    except Exception as e:  # keep the core CLI usable
+        click.echo(style("error", f"(extras commands unavailable: {e})"), err=True)
+        return
+    register(cli)
+
+
+_register_extras()

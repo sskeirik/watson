@@ -37,6 +37,10 @@ Homepage = "https://github.com/TailorDev/Watson"
 [project.scripts]
 watson = "watson.__main__:cli"
 
+[project.gui-scripts]
+# No console window on Windows, for Task Scheduler
+watson-watch = "watson.extras.watch:main"
+
 [dependency-groups]
 dev = [
     "pytest>=8",

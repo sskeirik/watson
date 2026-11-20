@@ -65,6 +65,11 @@ class Watson:
         if "last_sync" in kwargs:
             self.last_sync = kwargs["last_sync"]
 
+    @property
+    def config_dir(self):
+        """The data directory holding the config, frames and state files."""
+        return self._dir
+
     def _load_json_file(self, filename, type=dict):
         """
         Return the content of the the given JSON file.
