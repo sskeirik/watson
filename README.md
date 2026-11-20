@@ -1,10 +1,10 @@
-<img src="docs/img/logo-watson-600px.png" alt="Watson" width="300">
+# Watson
 
-# Watson (fork)
+**Forked from [Watson](https://github.com/TailorDev/Watson) by
+[TailorDev](https://github.com/TailorDev) and contributors**;
+all credit for the original tool goes to them.
 
-**This is a fork of [Watson](https://github.com/TailorDev/Watson) by
-[TailorDev](https://github.com/TailorDev) and its contributors**, a wonderful
-CLI to track your time. All credit for the original tool goes to them; it is
+This tool is a CLI to track your time,
 released under the MIT License (see [LICENSE](LICENSE)).
 
 This fork is maintained for personal use. It requires Python 3.12+ and adds:

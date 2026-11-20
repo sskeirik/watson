@@ -1,11 +1,8 @@
-![logo Watson](img/logo-watson-600px.png)
-
 ## Overview
 
-> This is a personal fork of [Watson](https://github.com/TailorDev/Watson) by
-> [TailorDev](https://github.com/TailorDev) and its contributors, to whom all
-> credit for the original tool belongs. The fork's repository is
-> [sskeirik/watson](https://github.com/sskeirik/watson).
+**Forked from [Watson](https://github.com/TailorDev/Watson) by
+[TailorDev](https://github.com/TailorDev) and contributors**;
+all credit for the original tool goes to them.
 
 Watson is here to help you monitor your time. You want to know how
 much time you are spending on your projects? You want to generate a nice
