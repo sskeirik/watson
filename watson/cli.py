@@ -88,7 +88,7 @@ class MutuallyExclusiveOption(click.Option):
 class DateTimeParamType(click.ParamType):
     name = "datetime"
 
-    def convert(self, value, param, ctx) -> arrow:
+    def convert(self, value, param, ctx):
         if value:
             date = self._parse_multiformat(value)
             if date is None:
@@ -102,12 +102,12 @@ class DateTimeParamType(click.ParamType):
             date = date.replace(tzinfo=local_tz_info())
             # Add an offset to match the week beginning specified in the
             # configuration
-            if param.name == "week":
+            if param is not None and param.name == "week" and ctx is not None:
                 week_start = ctx.obj.config.get("options", "week_start", "monday")
                 date = apply_weekday_offset(start_time=date, week_start=week_start)
             return date
 
-    def _parse_multiformat(self, value) -> arrow:
+    def _parse_multiformat(self, value) -> arrow.Arrow | None:
         date = None
         for fmt in (None, "HH:mm:ss", "HH:mm"):
             try:

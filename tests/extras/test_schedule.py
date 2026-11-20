@@ -126,5 +126,6 @@ def test_write_alternate_round_trips(watson):
     standard = load_schedules(watson).standard
     write_alternate(watson.config_dir, MON, datetime.date(2018, 12, 9), standard)
     s = load_schedules(watson)
+    assert s.alternate is not None
     assert s.alternate.start == MON
     assert s.alternate.schedule.describe() == standard.describe()

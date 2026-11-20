@@ -13,7 +13,7 @@ def mock_datetime(dt, dt_module):
 
     class DateTimeMeta(type):
         @classmethod
-        def __instancecheck__(mcs, obj):
+        def __instancecheck__(mcs, obj):  # type: ignore[override]
             return isinstance(obj, datetime.datetime)
 
     class BaseMockedDateTime(datetime.datetime):

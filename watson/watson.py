@@ -5,6 +5,7 @@ import os
 import uuid
 from configparser import Error as CFGParserError
 from functools import reduce
+from typing import Any
 
 import arrow
 import click
@@ -42,11 +43,11 @@ class Watson:
         :param config_dir: If given, the directory where the configuration
                            files will be
         """
-        self._current = None
-        self._old_state = None
-        self._frames = None
-        self._last_sync = None
-        self._config = None
+        self._current: dict[str, Any] | None = None
+        self._old_state: dict[str, Any] | None = None
+        self._frames: Frames | None = None
+        self._last_sync: Any = None
+        self._config: ConfigParser | None = None
         self._config_changed = False
 
         self._dir = kwargs.pop("config_dir", None) or click.get_app_dir("watson")
@@ -70,7 +71,7 @@ class Watson:
         """The data directory holding the config, frames and state files."""
         return self._dir
 
-    def _load_json_file(self, filename, type=dict):
+    def _load_json_file(self, filename, type: Any = dict) -> Any:
         """
         Return the content of the the given JSON file.
         If the file doesn't exist, return an empty instance of the
@@ -169,6 +170,7 @@ class Watson:
         if self._frames is None:
             self.frames = self._load_json_file(self.frames_file, type=list)
 
+        assert self._frames is not None
         return self._frames
 
     @frames.setter
@@ -183,6 +185,7 @@ class Watson:
         if self._old_state is None:
             self._old_state = self._current
 
+        assert self._current is not None
         return dict(self._current)
 
     @current.setter
@@ -347,15 +350,14 @@ class Watson:
 
             try:
                 response = requests.get(dest, headers=headers)
-                assert response.status_code == 200
-
-                self._remote_projects = response.json()
             except requests.ConnectionError:
                 raise WatsonError("Unable to reach the server.") from None
-            except AssertionError:
+            if response.status_code != 200:
                 raise WatsonError(
                     f"An error occurred with the remote server: {response.json()}"
-                ) from None
+                )
+
+            self._remote_projects = response.json()
 
         return self._remote_projects["projects"]
 
@@ -368,13 +370,12 @@ class Watson:
             response = requests.get(
                 dest, params={"last_sync": self.last_sync}, headers=headers
             )
-            assert response.status_code == 200
         except requests.ConnectionError:
             raise WatsonError("Unable to reach the server.") from None
-        except AssertionError:
+        if response.status_code != 200:
             raise WatsonError(
                 f"An error occurred with the remote server: {response.json()}"
-            ) from None
+            )
 
         frames = response.json() or ()
 
@@ -410,14 +411,13 @@ class Watson:
 
         try:
             response = requests.post(dest, json.dumps(frames), headers=headers)
-            assert response.status_code == 201
         except requests.ConnectionError:
             raise WatsonError("Unable to reach the server.") from None
-        except AssertionError:
+        if response.status_code != 201:
             raise WatsonError(
                 f"An error occurred with the remote server (status: {response.status_code}). "
                 f"Response was:\n{response.text}"
-            ) from None
+            )
 
         return frames
 
@@ -464,9 +464,7 @@ class Watson:
         all=None,
         include_partial_frames=False,
     ):
-        for start_time in (
-            _ for _ in [day, week, month, year, all] if _ is not None
-        ):
+        for start_time in (_ for _ in [day, week, month, year, all] if _ is not None):
             from_ = start_time
 
         if not self._validate_report_options(projects, ignore_projects):

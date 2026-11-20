@@ -1,4 +1,4 @@
 from .watson import __version__  # noqa
-from .watson import Watson, WatsonError
+from .watson import ConfigurationError, Watson, WatsonError
 
-__all__ = ["Watson", "WatsonError"]
+__all__ = ["ConfigurationError", "Watson", "WatsonError"]

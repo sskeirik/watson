@@ -22,7 +22,7 @@ class ConfigParser(RawConfigParser):
             else default
         )
 
-    def getint(self, section, option, default=None):
+    def getint(self, section, option, default=None):  # type: ignore[override]
         """
         Return value of option in given configuration section as an integer.
 
@@ -34,7 +34,7 @@ class ConfigParser(RawConfigParser):
         val = self.get(section, option)
         return default if val is None else int(val)
 
-    def getfloat(self, section, option, default=None):
+    def getfloat(self, section, option, default=None):  # type: ignore[override]
         """
         Return value of option in given configuration section as a float.
 
@@ -46,7 +46,7 @@ class ConfigParser(RawConfigParser):
         val = self.get(section, option)
         return default if val is None else float(val)
 
-    def getboolean(self, section, option, default=False):
+    def getboolean(self, section, option, default=False):  # type: ignore[override]
         """
         Return value of option in given configuration section as a boolean.
 
@@ -89,14 +89,14 @@ class ConfigParser(RawConfigParser):
         if not self.has_option(section, option):
             return [] if default is None else default
 
-        value = self.get(section, option)
+        value = self.get(section, option) or ""
 
         if "\n" in value:
             return [item.strip() for item in value.splitlines() if item.strip()]
         else:
             return shlex.split(value)
 
-    def set(self, section, option, value):
+    def set(self, section, option, value):  # type: ignore[override]
         """
         Set option in given configuration section to value.
 

@@ -75,7 +75,9 @@ class OutputParser:
 
     @staticmethod
     def get_frame_id(output):
-        return OutputParser.FRAME_ID_PATTERN.search(output).group("frame_id")
+        match = OutputParser.FRAME_ID_PATTERN.search(output)
+        assert match is not None
+        return match.group("frame_id")
 
     @staticmethod
     def get_start_date(watson, output):
@@ -163,14 +165,14 @@ def test_report_invalid_date(runner, watson, test_dt):
 
 @pytest.mark.parametrize("at_dt", VALID_TIMES_DATA)
 def test_stop_valid_time(runner, watson, mocker, at_dt):
-    mocker.patch("arrow.arrow.dt_datetime", wraps=datetime)
+    mock_dt = mocker.patch("arrow.arrow.dt_datetime", wraps=datetime)
     start_dt = datetime(2019, 4, 10, 14, 0, 0, tzinfo=local_tz_info())
-    arrow.arrow.dt_datetime.now.return_value = start_dt
+    mock_dt.now.return_value = start_dt
     result = runner.invoke(cli.start, ["a-project"], obj=watson)
     assert result.exit_code == 0
     # Simulate one hour has elapsed, so that 'at_dt' is older than now()
     # but newer than the start date.
-    arrow.arrow.dt_datetime.now.return_value = start_dt + timedelta(hours=1)
+    mock_dt.now.return_value = start_dt + timedelta(hours=1)
     result = runner.invoke(cli.stop, ["--at", at_dt], obj=watson)
     assert result.exit_code == 0
 
@@ -181,9 +183,9 @@ def test_stop_valid_time(runner, watson, mocker, at_dt):
 @pytest.mark.parametrize("at_dt", VALID_TIMES_DATA)
 def test_start_valid_time(runner, watson, mocker, at_dt):
     # Simulate a start date so that 'at_dt' is older than now().
-    mocker.patch("arrow.arrow.dt_datetime", wraps=datetime)
+    mock_dt = mocker.patch("arrow.arrow.dt_datetime", wraps=datetime)
     start_dt = datetime(2019, 4, 10, 14, 0, 0, tzinfo=local_tz_info())
-    arrow.arrow.dt_datetime.now.return_value = start_dt + timedelta(hours=1)
+    mock_dt.now.return_value = start_dt + timedelta(hours=1)
     result = runner.invoke(cli.start, ["a-project", "--at", at_dt], obj=watson)
     assert result.exit_code == 0
 
@@ -194,9 +196,9 @@ def test_start_valid_time(runner, watson, mocker, at_dt):
 def test_start_existing_frame_stopped(runner, watson, mocker):
     # Simulate a start date so that 'at_dt' is older than now().
     watson.config.set("options", "stop_on_start", "true")
-    mocker.patch("arrow.arrow.dt_datetime", wraps=datetime)
+    mock_dt = mocker.patch("arrow.arrow.dt_datetime", wraps=datetime)
     start_dt = datetime(2019, 4, 10, 15, 0, 0, tzinfo=local_tz_info())
-    arrow.arrow.dt_datetime.now.return_value = start_dt
+    mock_dt.now.return_value = start_dt
     runner.invoke(
         cli.start,
         ["a-project", "--at", "14:10"],
@@ -221,13 +223,13 @@ def test_start_existing_frame_stopped(runner, watson, mocker):
 @pytest.mark.parametrize("at_dt", VALID_TIMES_DATA)
 def test_restart_valid_time(runner, watson, mocker, at_dt):
     # Create a previous entry the same as in `test_stop_valid_time`
-    mocker.patch("arrow.arrow.dt_datetime", wraps=datetime)
+    mock_dt = mocker.patch("arrow.arrow.dt_datetime", wraps=datetime)
     start_dt = datetime(2019, 4, 10, 14, 0, 0, tzinfo=local_tz_info())
-    arrow.arrow.dt_datetime.now.return_value = start_dt
+    mock_dt.now.return_value = start_dt
     result = runner.invoke(cli.start, ["a-project"], obj=watson)
     # Simulate one hour has elapsed, so that 'at_dt' is older than now()
     # but newer than the start date.
-    arrow.arrow.dt_datetime.now.return_value = start_dt + timedelta(hours=1)
+    mock_dt.now.return_value = start_dt + timedelta(hours=1)
     result = runner.invoke(cli.stop, ["--at", at_dt], obj=watson)
     # Test that the last frame can be restarted
     result = runner.invoke(cli.restart, ["--at", at_dt], obj=watson)

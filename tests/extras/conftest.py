@@ -25,7 +25,7 @@ def hm(text):
 def make_schedules(
     hours=("09:00-17:00",), workdays=range(5), holidays=(), alternate=None
 ):
-    ranges = tuple(tuple(hm(t) for t in r.split("-")) for r in hours)
+    ranges = tuple((hm(a), hm(b)) for a, b in (r.split("-") for r in hours))
     standard = Schedule(
         workdays=frozenset(workdays), hours=ranges, holidays=frozenset(holidays)
     )

@@ -66,6 +66,7 @@ def checks(watson) -> list[tuple[str, str]]:
 
     # Time zone: the same UTC offset on both sides
     local_offset = datetime.datetime.now(local_tz_info()).utcoffset()
+    assert local_offset is not None
     local_minutes = int(local_offset.total_seconds() // 60)
     if find_powershell() and sys.platform != "win32":
         win_minutes = _windows_utc_offset_minutes()

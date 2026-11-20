@@ -5,7 +5,6 @@ import os
 
 import arrow
 import pytest
-import requests
 from click import get_app_dir
 
 from watson import Watson, WatsonError
@@ -588,12 +587,12 @@ def test_push(mocker, watson):
     )
     watson.push(last_pull)
 
-    requests.post.assert_called_once_with(
+    mock_put.assert_called_once_with(
         mocker.ANY,
         mocker.ANY,
         headers={
             "content-type": "application/json",
-            "Authorization": "Token " + config.get("backend", "token"),
+            "Authorization": f"Token {config.get('backend', 'token')}",
         },
     )
 
@@ -681,18 +680,18 @@ def test_pull(mocker, watson):
                 },
             ]
 
-    mocker.patch("requests.get", return_value=Response())
+    mock_get = mocker.patch("requests.get", return_value=Response())
     mocker.patch.object(
         Watson, "config", new_callable=mocker.PropertyMock, return_value=config
     )
     watson.pull()
 
-    requests.get.assert_called_once_with(
+    mock_get.assert_called_once_with(
         mocker.ANY,
         params={"last_sync": watson.last_sync},
         headers={
             "content-type": "application/json",
-            "Authorization": "Token " + config.get("backend", "token"),
+            "Authorization": f"Token {config.get('backend', 'token')}",
         },
     )
 
@@ -829,10 +828,12 @@ def test_report_current(mocker, config_dir):
 
     watson = Watson(current={"project": "foo", "start": 4000}, config_dir=config_dir)
 
+    report = None
     for _ in range(2):
         report = watson.report(
             arrow.utcnow(), arrow.utcnow(), current=True, projects=["foo"]
         )
+    assert report is not None
     assert len(report["projects"]) == 1
     assert report["projects"][0]["name"] == "foo"
     assert report["projects"][0]["time"] == pytest.approx(1000)

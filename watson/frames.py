@@ -1,5 +1,6 @@
 import uuid
 from collections import namedtuple
+from typing import Any
 
 import arrow
 
@@ -87,14 +88,14 @@ class Frames:
             frames = []
 
         rows = [Frame(*frame) for frame in frames]
-        self._rows = rows
+        self._rows: list[Frame] = rows
 
         self.changed = False
 
     def __len__(self):
         return len(self._rows)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key) -> Any:
         if key in HEADERS:
             return tuple(self._get_col(key))
         elif isinstance(key, int):

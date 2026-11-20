@@ -156,6 +156,7 @@ class Schedules:
         sched = self.for_date(day)
         if sched.source == "alternate":
             alt = self.alternate
+            assert alt is not None
             what = f"alternate schedule ({alt.start} to {alt.end}, {alt.path})"
         else:
             what = "standard schedule"
@@ -283,11 +284,14 @@ def load_schedules(watson) -> Schedules:
         )
 
     where = f"{path} [schedule]"
+    raw_dates = {}
     for key in ("start", "end"):
-        if not (get(key) or "").strip():
+        raw = (get(key) or "").strip()
+        if not raw:
             raise ScheduleError(f"{where}: '{key}' (YYYY-MM-DD) is required")
-    start = parse_date(get("start"), f"{where} start")
-    end = parse_date(get("end"), f"{where} end")
+        raw_dates[key] = raw
+    start = parse_date(raw_dates["start"], f"{where} start")
+    end = parse_date(raw_dates["end"], f"{where} end")
     alt_schedule = _schedule_from(get, where, standard, "alternate")
 
     if end < start:

@@ -55,7 +55,7 @@ def setup_file_logging(config_dir: str):
         backupCount=1,
         encoding="utf-8",
     )
-    handler._watson_extras = True
+    handler._watson_extras = True  # type: ignore[attr-defined]
     handler.setFormatter(
         logging.Formatter("%(asctime)s %(process)d %(levelname)s %(message)s")
     )

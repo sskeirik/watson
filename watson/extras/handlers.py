@@ -26,7 +26,7 @@ class Outcome:
 
 
 def _fmt(moment: datetime.datetime) -> str:
-    return arrow.get(moment).to(moment.tzinfo).format("ddd HH:mm")
+    return arrow.get(moment).to(moment.tzinfo or "local").format("ddd HH:mm")
 
 
 def describe(action: Action, frame: RunningFrame, now: datetime.datetime) -> str:
