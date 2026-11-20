@@ -7,6 +7,7 @@ import operator
 import os
 import shutil
 import tempfile
+import time
 from io import StringIO
 
 import arrow
@@ -243,35 +244,59 @@ def safe_save(path, content, ext=".bak"):
     function may write (unicode) strings to the file object (but doesn't need
     to close it).
 
-    The file to write to is created at a temporary location first. If there is
-    an error creating or writing to the temp file or calling `content`, the
-    destination file is left untouched. Otherwise, if all is well, an existing
-    destination file is backed up to `path` + `ext` (defaults to '.bak') and
-    the temporary file moved into its place.
-
+    The content is written (as UTF-8) to a temporary file in the same
+    directory as `path` first. If there is an error creating or writing to the
+    temp file or calling `content`, the destination file is left untouched.
+    Otherwise an existing destination file is copied to `path` + `ext`
+    (defaults to '.bak') and the temporary file atomically replaces `path`, so
+    concurrent readers (e.g. another Watson process on the same shared data
+    directory) never see a missing or half-written file.
     """
-    tmpfp = tempfile.NamedTemporaryFile(mode="w+", delete=False)
+    directory = os.path.dirname(os.path.abspath(path))
+    fd, tmpname = tempfile.mkstemp(
+        dir=directory, prefix=f".{os.path.basename(path)}.", suffix=".tmp"
+    )
     try:
-        with tmpfp:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as tmpfp:
             if isinstance(content, str):
                 tmpfp.write(content)
             else:
                 content(tmpfp)
-    except Exception:
+            tmpfp.flush()
+            os.fsync(tmpfp.fileno())
+    except BaseException:
         try:
-            os.unlink(tmpfp.name)
+            os.unlink(tmpname)
         except OSError:
             pass
         raise
-    else:
-        if os.path.exists(path):
-            try:
-                os.unlink(path + ext)
-            except OSError:
-                pass
-            shutil.move(path, path + ext)
 
-        shutil.move(tmpfp.name, path)
+    try:
+        if os.path.exists(path):
+            shutil.copy2(path, path + ext)
+        _replace_with_retry(tmpname, path)
+    except BaseException:
+        try:
+            os.unlink(tmpname)
+        except OSError:
+            pass
+        raise
+
+
+def _replace_with_retry(src, dst, attempts=10, delay=0.05):
+    """`os.replace`, retrying briefly on Windows sharing violations.
+
+    On Windows, replacing a file fails with PermissionError while another
+    process has it open (e.g. the watcher reading `frames` at that moment).
+    """
+    for attempt in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(delay)
 
 
 def deduplicate(sequence):

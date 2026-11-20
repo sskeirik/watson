@@ -1824,7 +1824,7 @@ def config(context, key, value, edit):
 
     if edit:
         try:
-            with open(watson.config_file) as fp:
+            with open(watson.config_file, encoding="utf-8") as fp:
                 rawconfig = fp.read()
         except OSError:
             rawconfig = ""

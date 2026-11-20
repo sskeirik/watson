@@ -131,26 +131,64 @@ def test_safe_save(config_dir):
     assert os.path.getmtime(save_file) >= os.path.getmtime(backup_file)
 
 
-def test_safe_save_tmpfile_on_other_filesystem(config_dir, mocker):
+def test_safe_save_writes_temp_file_next_to_destination(config_dir, mocker):
     save_file = os.path.join(config_dir, "test")
-    backup_file = os.path.join(config_dir, "test" + ".bak")
+    safe_save(save_file, "Success")
 
-    assert not os.path.exists(save_file)
-    safe_save(save_file, lambda f: f.write("Success"))
-    assert os.path.exists(save_file)
-    assert not os.path.exists(backup_file)
-
-    with open(save_file) as fp:
-        assert fp.read() == "Success"
-
-    # simulate tmpfile being on another file-system
-    # OSError is caught and handled by shutil.move() used by save_safe()
-    mocker.patch("os.rename", side_effect=OSError)
+    replace = mocker.spy(os, "replace")
     safe_save(save_file, "Again")
-    assert os.path.exists(backup_file)
 
+    src, dst = replace.call_args[0]
+    # Same directory => os.replace is a rename, atomic even on /mnt/c
+    assert os.path.dirname(src) == os.path.dirname(dst) == config_dir
+    assert sorted(os.listdir(config_dir)) == ["test", "test.bak"]
+
+
+def test_safe_save_destination_never_missing(config_dir, mocker):
+    save_file = os.path.join(config_dir, "test")
+    safe_save(save_file, "Success")
+
+    real_replace = os.replace
+    seen = []
+
+    def checking_replace(src, dst):
+        seen.append(os.path.exists(dst))
+        real_replace(src, dst)
+
+    mocker.patch("os.replace", side_effect=checking_replace)
+    safe_save(save_file, "Again")
+
+    assert seen == [True]
     with open(save_file) as fp:
         assert fp.read() == "Again"
+
+
+def test_safe_save_utf8(config_dir):
+    save_file = os.path.join(config_dir, "test")
+    safe_save(save_file, "ùñï©ôð€ εvεrywhεrε\n")
+
+    with open(save_file, "rb") as fp:
+        assert fp.read() == "ùñï©ôð€ εvεrywhεrε\n".encode()
+
+
+def test_safe_save_retries_windows_sharing_violation(config_dir, mocker):
+    save_file = os.path.join(config_dir, "test")
+    real_replace = os.replace
+    calls = []
+
+    def flaky_replace(src, dst):
+        calls.append(dst)
+        if len(calls) < 3:
+            raise PermissionError("file in use")
+        real_replace(src, dst)
+
+    mocker.patch("os.replace", side_effect=flaky_replace)
+    mocker.patch("time.sleep")
+    safe_save(save_file, "Success")
+
+    assert len(calls) == 3
+    with open(save_file) as fp:
+        assert fp.read() == "Success"
 
 
 def test_safe_save_with_exception(config_dir):
@@ -179,6 +217,8 @@ def test_safe_save_with_exception(config_dir):
         assert fp.read() == "Success"
 
     assert not os.path.exists(backup_file)
+    # The failed temp file is cleaned up
+    assert os.listdir(config_dir) == ["test"]
 
 
 @pytest.mark.parametrize(

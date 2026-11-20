@@ -380,7 +380,6 @@ def test_cancel_no_project(watson):
 
 
 def test_save_without_changes(mocker, watson, json_mock):
-    mocker.patch("builtins.open", mocker.mock_open())
     watson.save()
 
     assert not json_mock.called
@@ -389,7 +388,6 @@ def test_save_without_changes(mocker, watson, json_mock):
 def test_save_current(mocker, watson, json_mock):
     watson.start("foo", ["A", "B"])
 
-    mocker.patch("builtins.open", mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -402,7 +400,6 @@ def test_save_current(mocker, watson, json_mock):
 def test_save_current_without_tags(mocker, watson, json_mock):
     watson.start("foo")
 
-    mocker.patch("builtins.open", mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -417,8 +414,6 @@ def test_save_current_without_tags(mocker, watson, json_mock):
 
 def test_save_empty_current(config_dir, mocker, json_mock):
     watson = Watson(current={}, config_dir=config_dir)
-
-    mocker.patch("builtins.open", mocker.mock_open())
 
     watson.current = {"project": "foo", "start": 4000}
     watson.save()
@@ -438,7 +433,6 @@ def test_save_empty_current(config_dir, mocker, json_mock):
 def test_save_frames_no_change(config_dir, mocker, json_mock):
     watson = Watson(frames=[[4000, 4010, "foo", None]], config_dir=config_dir)
 
-    mocker.patch("builtins.open", mocker.mock_open())
     watson.save()
 
     assert not json_mock.called
@@ -448,7 +442,6 @@ def test_save_added_frame(config_dir, mocker, json_mock):
     watson = Watson(frames=[[4000, 4010, "foo", None]], config_dir=config_dir)
     watson.frames.add("bar", 4010, 4020, ["A"])
 
-    mocker.patch("builtins.open", mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -464,7 +457,6 @@ def test_save_changed_frame(config_dir, mocker, json_mock):
     watson = Watson(frames=[[4000, 4010, "foo", None, ["A"]]], config_dir=config_dir)
     watson.frames[0] = ("bar", 4000, 4010, ["A", "B"])
 
-    mocker.patch("builtins.open", mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -478,7 +470,6 @@ def test_save_changed_frame(config_dir, mocker, json_mock):
 
 
 def test_save_config_no_changes(mocker, watson):
-    mocker.patch("builtins.open", mocker.mock_open())
     write_mock = mocker.patch.object(ConfigParser, "write")
     watson.save()
 
@@ -486,7 +477,6 @@ def test_save_config_no_changes(mocker, watson):
 
 
 def test_save_config(mocker, watson):
-    mocker.patch("builtins.open", mocker.mock_open())
     write_mock = mocker.patch.object(ConfigParser, "write")
     watson.config = ConfigParser()
     watson.save()
@@ -498,7 +488,6 @@ def test_save_last_sync(mocker, watson, json_mock):
     now = arrow.now()
     watson.last_sync = now
 
-    mocker.patch("builtins.open", mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1
@@ -509,7 +498,6 @@ def test_save_empty_last_sync(config_dir, mocker, json_mock):
     watson = Watson(last_sync=arrow.now(), config_dir=config_dir)
     watson.last_sync = None
 
-    mocker.patch("builtins.open", mocker.mock_open())
     watson.save()
 
     assert json_mock.call_count == 1

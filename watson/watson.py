@@ -72,7 +72,7 @@ class Watson:
         given type.
         """
         try:
-            with open(filename) as f:
+            with open(filename, encoding="utf-8") as f:
                 return json.load(f)
         except OSError:
             return type()
@@ -108,7 +108,7 @@ class Watson:
         if not self._config:
             try:
                 config = ConfigParser()
-                config.read(self.config_file)
+                config.read(self.config_file, encoding="utf-8")
             except CFGParserError as e:
                 raise ConfigurationError(f"Cannot parse config file: {e}") from e
 

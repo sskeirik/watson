@@ -35,4 +35,4 @@ def mock_datetime(dt, dt_module):
 
 
 def mock_read(content):
-    return lambda self, name: self._read(StringIO(content), name)
+    return lambda self, name, encoding=None: self._read(StringIO(content), name)
