@@ -600,7 +600,9 @@ def _period_options(allow_all=True):
             if prev is not None or range_ is not None:
                 if prev is not None and range_ is not None:
                     raise click.UsageError("--prev and --range are mutually exclusive.")
-                flag, spec = ("--prev", prev) if prev is not None else ("--range", range_)
+                flag, spec = (
+                    ("--prev", prev) if prev is not None else ("--range", range_)
+                )
                 if len(active) != 1 or active[0] not in _PERIOD_SHORTCUTS:
                     raise click.UsageError(
                         f"{flag} needs exactly one of --day, --week, --month, "
@@ -637,14 +639,17 @@ def _period_options(allow_all=True):
             "--prev", "prev", metavar="START[-END]", help=_PREV_HELP
         )(wrapper)
         for name in reversed(names):
+            help_text = (
+                "Reports all activities."
+                if name == "all"
+                else f"Reports activity for the current {name}."
+            )
             wrapper = click.option(
                 _SHORTCUT_FLAGS[name],
                 f"--{name}",
                 name,
                 is_flag=True,
-                help="Reports all activities."
-                if name == "all"
-                else f"Reports activity for the current {name}.",
+                help=help_text,
             )(wrapper)
         return wrapper
 
