@@ -38,6 +38,20 @@ or:
 
 If you need more details about installing watson, please refer to the `documentation <https://tailordev.github.io/Watson>`_.
 
+This fork
+~~~~~~~~~
+
+This fork requires Python 3.12+ and adds work-hours reminders, forgotten-timer
+policies, an alternate schedule, ``--prev``/``--range``/``--quarter`` report
+periods and Windows/WSL support with a shared data directory. Install it with
+`uv <https://docs.astral.sh/uv/>`_:
+
+.. code:: bash
+
+  $ uv tool install <path-or-git-url-of-this-fork>
+
+See ``docs/user-guide/work-hours.md`` for the setup on Windows and WSL.
+
 Usage
 ~~~~~
 

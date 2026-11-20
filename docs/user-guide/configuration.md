@@ -217,6 +217,13 @@ Or in the configuration file:
 voyager2 = nasa 'space mission'
 ```
 
+### Schedule, reminder, review, policies and extras
+
+The `[schedule]`, `[reminder]`, `[review]`, `[policy:NAME]` and `[extras]`
+sections configure work hours, the "no timer running" reminder and the
+forgotten-timer policies. They are described in
+[Work hours & forgotten timers](work-hours.md).
+
 ## Sample configuration file
 
 A basic configuration file looks like the following:
@@ -258,3 +265,8 @@ $ WATSON_DIR=/path/to/watson/folder watson status
 ```
 
 This can be useful to preserve your real data when hacking with Watson :)
+
+To share one data folder between Windows and WSL, point WSL's `WATSON_DIR`
+at the Windows default, e.g.
+`/mnt/c/Users/<windows-user>/AppData/Roaming/watson`. Saves are atomic, so
+both sides can use it safely.

@@ -13,7 +13,7 @@ $ git checkout -b prepare-x.y.z
 
 Edit the following files to describe changes and bump the version number:
 
-* `watson/version.py`: update the version number
+* `pyproject.toml`: bump the version with `uv version --bump major|minor|patch`
 * `CHANGELOG.md`: add release notes (see previous releases examples)
 * `docs/about/release-notes.md`: copy/paste release notes here
 * `watson.completion` and `watson.zsh-completion`: generate up-to-date
@@ -22,7 +22,7 @@ Edit the following files to describe changes and bump the version number:
 Then commit your work, tag the release and push everything to GitHub:
 
 ```bash
-$ git add watson/version.py CHANGELOG.md docs/about/release-notes.md
+$ git add pyproject.toml uv.lock CHANGELOG.md docs/about/release-notes.md
 $ git commit -m 'Bump release to x.y.z'
 $ git tag x.y.z
 $ git push origin prepare-x.y.z
@@ -45,13 +45,12 @@ $ git checkout master
 $ git pull --rebase origin master
 ```
 
-Now, build the release and submit it to PyPI using
-[twine](https://github.com/pypa/twine) (you'll need to be registered as a
-maintainer of the package):
+Now, build the release and submit it to PyPI (you'll need to be registered as
+a maintainer of the package):
 
 ```bash
-$ python setup.py sdist bdist_wheel
-$ twine upload dist/*
+$ uv build
+$ uv publish
 ```
 
 ## Update online documentation
@@ -60,7 +59,7 @@ We use [`mkdocs`](http://www.mkdocs.org) to generate the online documentation.
 It must be updated via:
 
 ```bash
-$ mkdocs gh-deploy --clean
+$ uv run --group docs mkdocs gh-deploy --clean
 ```
 
 ## Publish the `x.y.z` release to Homebrew

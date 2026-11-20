@@ -2,87 +2,43 @@
 
 Ready to contribute? Here's how to set up *Watson* for local development.
 
-## Python requirements
-* Python (2/3) interpreter installed
-* `pip` tool to install package dependencies
-* `virtualenv` tool to create virtual environments
+## Requirements
+
+* [uv](https://docs.astral.sh/uv/). It installs a suitable Python (3.12+)
+  itself if needed.
 
 ## Get started!
 
-1. Fork the [Watson repository](https://github.com/TailorDev/Watson/) on GitHub.
+1. Clone the repository and create the development environment:
 
-2. Clone your fork locally:
+        $ git clone <repository-url> watson
+        $ cd watson
+        $ uv sync
 
-        $ git clone git@github.com:your_name_here/Watson.git
+    `uv sync` creates `.venv` with Watson installed in editable mode plus the
+    `dev` dependency group (pytest, ruff).
 
-3. Create a virtual environment:
+2. Run your working copy without touching your real data:
 
-        $ cd Watson
-        $ make env
+        $ export WATSON_DIR="$PWD/data"
+        $ uv run watson projects
 
-    The Python version used will be the one accessible using the `python`
-    command in your shell.
+3. Create a branch, make your changes, then check them:
 
-    To use a different Python version, define the `PYTHON` shell variable.
-    For example:
+        $ make check            # ruff check + pytest
 
-        $ PYTHON=python3.5 make env
+    To test another Python version: `uv run --python 3.14 pytest`.
 
-4. Install dependencies and deploy Watson inside the virtual environment:
+4. If you added a command or changed docstrings, regenerate the docs:
 
-        $ source .venv/bin/activate
-        (.venv) $ make install-dev
+        $ make docs
 
-    If you are using fish shell, source `.venv/bin/activate.fish` instead.
-
-5. Create a branch for local development:
-
-        (.venv) $ git checkout -b name-of-your-bugfix-or-feature
-
-    Now you can make your changes locally.
-
-    _Notes:_
-
-    - The files you need to edit to change watson's behavior are located in the
-      `watson/` subfolder.
-    - Every time you run `watson` inside the virtual environment, the source
-      code inside the `watson/` subfolder will be used.
-    - To avoid messing with your real Watson data, watson will use `data/` as
-      the [application folder](../user-guide/configuration/#application-folder)
-      inside the virtual environment. You can run `watson projects` to check
-      that your real projects are not shown.
-
-6. When you're done making changes, check that your changes pass the tests
-    (see [Run the tests](#run-the-tests)):
-
-        (.venv) $ tox
-
-7. If you have added a new command or updated/fixed docstrings, please update
-    the documentation:
-
-        (.venv) $ make docs
-
-8. Commit your changes and push your branch to GitHub:
-
-        $ git add .
-        $ git commit -m "Your detailed description of your changes."
-        $ git push -u origin name-of-your-bugfix-or-feature
-
-9. After [reading this](./pr-guidelines.md), submit a pull request through the
-    GitHub website.
-
-<a href="#run-the-tests"></a>
 ## Run the tests
 
-The tests use [pytest](http://pytest.org/). To run them with the default Python
-interpreter:
+    $ uv run pytest                 # all tests
+    $ uv run pytest tests/extras    # one directory
+    $ uv run ruff check watson/ tests/ scripts/
+    $ uv run ruff format watson/ tests/ scripts/
 
-    $ py.test -v tests/
-
-To run the tests via [tox](http://tox.testrun.org/) with all Python versions
-which are available on your system and are defined in the `tox.ini` file,
-simply run:
-
-    $ tox
-
-This will also check the source code with [flake8](http://flake8.pycqa.org).
+Formatting commits are listed in `.git-blame-ignore-revs`; enable that with
+`git config blame.ignoreRevsFile .git-blame-ignore-revs`.

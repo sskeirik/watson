@@ -202,6 +202,63 @@ Flag | Help
 `-b, --confirm-new-tag` | Confirm creation of new tag.
 `--help` | Show this message and exit.
 
+## `extras doctor`
+
+```bash
+Usage:  watson extras doctor [OPTIONS]
+```
+
+Check the data directory, time zone, notifier, schedule and task.
+
+### Options
+
+Flag | Help
+-----|-----
+`--help` | Show this message and exit.
+
+## `extras install-task`
+
+```bash
+Usage:  watson extras install-task [OPTIONS]
+```
+
+Register the watcher with Windows Task Scheduler (run on Windows).
+
+### Options
+
+Flag | Help
+-----|-----
+`--interval TEXT` | How often the watcher runs.  [default: 5m]
+`--help` | Show this message and exit.
+
+## `extras test-toast`
+
+```bash
+Usage:  watson extras test-toast [OPTIONS] [MESSAGE]
+```
+
+Show a test notification with the configured notifier.
+
+### Options
+
+Flag | Help
+-----|-----
+`--help` | Show this message and exit.
+
+## `extras uninstall-task`
+
+```bash
+Usage:  watson extras uninstall-task [OPTIONS]
+```
+
+Remove the watcher from Windows Task Scheduler (run on Windows).
+
+### Options
+
+Flag | Help
+-----|-----
+`--help` | Show this message and exit.
+
 ## `frames`
 
 ```bash
@@ -656,6 +713,92 @@ Flag | Help
 `-s, --stop / -S, --no-stop` | (Don't) Stop an already running project.
 `--help` | Show this message and exit.
 
+## `review`
+
+```bash
+Usage:  watson review [OPTIONS]
+```
+
+Review frames flagged by forgotten-timer policies.
+
+Lists every pending review, including the ones deferred at `watson
+start`, and lets you stop a still-running frame at the right time or
+correct an auto-stopped frame's stop time.
+
+### Options
+
+Flag | Help
+-----|-----
+`--list` | Only list the pending reviews.
+`--help` | Show this message and exit.
+
+## `schedule alternate`
+
+```bash
+Usage:  watson schedule alternate [OPTIONS] [%Y-%m-%d] [%Y-%m-%d]
+```
+
+Set an alternate schedule from START to END (YYYY-MM-DD, inclusive).
+
+It replaces the standard schedule on those days. Edit the file it writes
+(shown below) to change the days or hours; an empty `workdays =` means
+no work days at all, e.g. for a vacation.
+
+### Options
+
+Flag | Help
+-----|-----
+`--copy-standard` | Start from the standard schedule's values (else keys are inherited).
+`--edit` | Open the file in $EDITOR afterwards.
+`--force` | Replace an existing alternate schedule.
+`--help` | Show this message and exit.
+
+## `schedule clear`
+
+```bash
+Usage:  watson schedule clear [OPTIONS]
+```
+
+Remove the alternate schedule.
+
+### Options
+
+Flag | Help
+-----|-----
+`--help` | Show this message and exit.
+
+## `schedule status`
+
+```bash
+Usage:  watson schedule status [OPTIONS]
+```
+
+Show which schedule applies, and why.
+
+### Options
+
+Flag | Help
+-----|-----
+`--date [%Y-%m-%d]` | The day to explain (default: today).
+`--help` | Show this message and exit.
+
+## `snooze`
+
+```bash
+Usage:  watson snooze [OPTIONS] [DURATION]
+```
+
+Pause the "no timer running" reminder.
+
+DURATION is e.g. `1h`, `90m`, `today` (until midnight) or `off`. Without
+it, show the current snooze.
+
+### Options
+
+Flag | Help
+-----|-----
+`--help` | Show this message and exit.
+
 ## `start`
 
 ```bash
@@ -813,5 +956,26 @@ Example:
 
 Flag | Help
 -----|-----
+`--help` | Show this message and exit.
+
+## `watch`
+
+```bash
+Usage:  watson watch [OPTIONS]
+```
+
+Check the no-timer reminder and the forgotten-timer policies.
+
+On Windows, `watson extras install-task` runs this every few minutes
+through Task Scheduler. Run it by hand with `--dry-run` to see what the
+policies would do right now.
+
+### Options
+
+Flag | Help
+-----|-----
+`--once / --loop` | Run one pass (default) or keep running.
+`--interval TEXT` | With --loop: time between passes, e.g. 1m (default: [extras] poll_interval).
+`--dry-run` | Show what would happen without stopping frames or recording anything.
 `--help` | Show this message and exit.
 

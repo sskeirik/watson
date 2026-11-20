@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
-import inspect
-
-from click.core import Command, Context
+from click.core import Context, Group
 from click.formatting import HelpFormatter
 
 from watson import cli as watson_cli
@@ -60,10 +58,14 @@ class MarkdownFormatter(HelpFormatter):
 
 
 class MkdocsContext(Context):
+    def __init__(self, command, path=None, **kwargs):
+        super().__init__(command, **kwargs)
+        self._path = path or command.name
+
     @property
     def command_path(self):
         # Not so proud of it
-        return f"watson {self.command.name}"
+        return f"watson {self._path}"
 
     def make_formatter(self):
         return MarkdownFormatter()
@@ -74,13 +76,6 @@ def main(rowsput):
     generate commands markdown documentation and
     write it to the rowsput file.
     """
-
-    def is_click_command(obj):
-        """A filter for click command objects"""
-
-        if type(obj) is Command:
-            return True
-        return False
 
     content = "\n".join(
         (
@@ -96,9 +91,18 @@ def main(rowsput):
         )
     )
 
-    # Iterate over commands to build docs
-    for cmd_name, cmd in inspect.getmembers(watson_cli, is_click_command):
-        ctx = MkdocsContext(cmd)
+    # Iterate over the registered commands (groups expand into their
+    # subcommands) to build docs
+    def walk(group, prefix=""):
+        for name in sorted(group.commands):
+            cmd = group.commands[name]
+            if isinstance(cmd, Group):
+                yield from walk(cmd, f"{prefix}{name} ")
+            else:
+                yield f"{prefix}{name}", cmd
+
+    for cmd_name, cmd in walk(watson_cli.cli):
+        ctx = MkdocsContext(cmd, path=cmd_name)
         formatter = MarkdownFormatter()
         cmd.format_help(ctx, formatter)
 

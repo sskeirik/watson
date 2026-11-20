@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `report`, `log` and `aggregate`: `-q/--quarter`, and `--prev START[-END]` /
+  `--range START[-END]` to report on earlier days, weeks, months, quarters or
+  years; `aggregate` gains the `-d/-w/-m/-q/-y` shortcuts
+- Work schedules (`[schedule]` plus an optional alternate schedule file),
+  a "no timer running" reminder, forgotten-timer policies (toast, autostop,
+  review prompt) and reviews at `watson start` / `watson review`; see
+  `docs/user-guide/work-hours.md`
+- Windows notifications and a Task Scheduler watcher (`watson extras
+  install-task`, `watson-watch`), usable from Windows and WSL with one shared
+  data directory; `watson extras doctor` checks the setup
+
+### Changed
+
+- Requires Python 3.12+. Packaging moved to `pyproject.toml` (uv); tox,
+  Travis CI and flake8 were replaced by uv and ruff
+- Saves are atomic (temporary file in the same directory + `os.replace`)
+  and always UTF-8
+
+### Fixed
+
+- Times were shown one hour off across DST changes with arrow 1.4+
+- Mutually exclusive options could reject valid input after an earlier
+  error in the same process
+
 ## [2.1.0] - 2022-05-16
 
 ### Added

@@ -13,6 +13,7 @@ nav:
 - User Guide:
     - Commands: 'user-guide/commands.md'
     - Configuration: 'user-guide/configuration.md'
+    - Work hours & forgotten timers: 'user-guide/work-hours.md'
 - Contributing:
     - Howto: 'contributing/how-to.md'
     - Hack: 'contributing/hack.md'
