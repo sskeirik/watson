@@ -4,6 +4,8 @@ import arrow
 
 from collections import namedtuple
 
+from .timezone import local_tz_info
+
 HEADERS = ('start', 'stop', 'project', 'id', 'tags', 'updated_at')
 
 
@@ -24,10 +26,10 @@ class Frame(namedtuple('Frame', HEADERS)):
             from .watson import WatsonError
             raise WatsonError("Error converting date: {}".format(e))
 
-        start = start.to('local')
+        start = start.to(local_tz_info())
 
         if stop:
-            stop = stop.to('local')
+            stop = stop.to(local_tz_info())
 
         if tags is None:
             tags = []

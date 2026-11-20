@@ -10,6 +10,7 @@ import click
 
 from .config import ConfigParser
 from .frames import Frames
+from .timezone import local_tz_info
 from .utils import deduplicate, make_json_writer, safe_save, sorted_groupby
 from .version import version as __version__  # noqa
 
@@ -94,7 +95,7 @@ class Watson(object):
 
     def _parse_date(self, date):
         """Returns Arrow object from timestamp."""
-        return arrow.Arrow.utcfromtimestamp(date).to('local')
+        return arrow.Arrow.utcfromtimestamp(date).to(local_tz_info())
 
     def _format_date(self, date):
         """Returns timestamp from string timestamp or Arrow object."""

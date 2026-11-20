@@ -3,7 +3,6 @@ import itertools
 import json
 import operator
 import os
-from dateutil import tz
 from functools import reduce, wraps
 
 import arrow
@@ -20,6 +19,7 @@ from .autocompletion import (
     get_tags,
 )
 from .frames import Frame
+from .timezone import local_tz_info
 from .utils import (
     apply_weekday_offset,
     build_csv,
@@ -65,21 +65,6 @@ class MutuallyExclusiveOption(click.Option):
                 'The following options are mutually exclusive: '
                 '{options}'.format(options=', '.join(
                     ['`--{}`'.format(_) for _ in self.mutually_exclusive]))))
-
-
-def local_tz_info() -> datetime.tzinfo:
-    """Get the local time zone object, respects the TZ env variable."""
-    timezone = os.environ.get("TZ", None)
-    # If timezone is None or an empty string, gettz returns the local time
-    tzinfo = tz.gettz(timezone)
-    # gettz returns None if the timezone passed to gettz is invalid
-    if tzinfo is None:
-        raise click.ClickException(
-            f"Invalid timezone {timezone} specified, "
-            "please set the TZ environment variable with"
-            " a valid timezone."
-        )
-    return tzinfo
 
 
 class DateTimeParamType(click.ParamType):
