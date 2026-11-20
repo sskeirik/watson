@@ -84,7 +84,7 @@ def main(rowsput):
             "    It should NOT BE EDITED.",
             "    To update this part of the documentation,",
             "    please type the following from the repository root:",
-            "    $ make docs-->",
+            "    $ uv run --group docs scripts/gen-cli-docs.py-->",
             "",
             "# Commands",
             "",

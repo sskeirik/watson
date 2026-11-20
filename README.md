@@ -79,8 +79,11 @@ $ watson help
 
 ```bash
 $ uv sync            # create .venv with the dev tools
-$ make check         # ruff + pytest
-$ make docs          # regenerate docs/user-guide/commands.md and build the site
+$ uv run ruff check watson/ tests/ scripts/
+$ uv run pytest
+$ uv build
+$ uv run --group docs scripts/gen-cli-docs.py   # regenerate docs/user-guide/commands.md
+$ uv run --group docs mkdocs build               # build the site
 ```
 
 Set `WATSON_DIR` to a scratch folder to avoid touching your real data.
