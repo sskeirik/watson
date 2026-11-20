@@ -8,7 +8,7 @@ from watson import Watson
 
 @pytest.fixture
 def config_dir(tmp_path):
-    path = tmp_path / 'config'
+    path = tmp_path / "config"
     path.mkdir()
     return str(path)
 

@@ -6,19 +6,17 @@ from io import StringIO
 from pathlib import Path
 from unittest import mock
 
-TEST_FIXTURE_DIR = Path(os.path.realpath(__file__)).parent / 'resources'
+TEST_FIXTURE_DIR = Path(os.path.realpath(__file__)).parent / "resources"
 
 
 def mock_datetime(dt, dt_module):
 
     class DateTimeMeta(type):
-
         @classmethod
         def __instancecheck__(mcs, obj):
             return isinstance(obj, datetime.datetime)
 
     class BaseMockedDateTime(datetime.datetime):
-
         @classmethod
         def now(cls, tz=None):
             return dt.replace(tzinfo=tz)
@@ -31,9 +29,9 @@ def mock_datetime(dt, dt_module):
         def today(cls):
             return dt
 
-    MockedDateTime = DateTimeMeta('datetime', (BaseMockedDateTime,), {})
+    MockedDateTime = DateTimeMeta("datetime", (BaseMockedDateTime,), {})
 
-    return mock.patch.object(dt_module, 'datetime', MockedDateTime)
+    return mock.patch.object(dt_module, "datetime", MockedDateTime)
 
 
 def mock_read(content):

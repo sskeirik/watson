@@ -5,11 +5,19 @@ import arrow
 
 from .timezone import local_tz_info
 
-HEADERS = ('start', 'stop', 'project', 'id', 'tags', 'updated_at')
+HEADERS = ("start", "stop", "project", "id", "tags", "updated_at")
 
 
-class Frame(namedtuple('Frame', HEADERS)):
-    def __new__(cls, start, stop, project, id, tags=None, updated_at=None,):
+class Frame(namedtuple("Frame", HEADERS)):
+    def __new__(
+        cls,
+        start,
+        stop,
+        project,
+        id,
+        tags=None,
+        updated_at=None,
+    ):
         try:
             if not isinstance(start, arrow.Arrow):
                 start = arrow.get(start)
@@ -23,6 +31,7 @@ class Frame(namedtuple('Frame', HEADERS)):
                 updated_at = arrow.get(updated_at)
         except (ValueError, TypeError) as e:
             from .watson import WatsonError
+
             raise WatsonError(f"Error converting date: {e}") from e
 
         start = start.to(local_tz_info())
@@ -33,20 +42,18 @@ class Frame(namedtuple('Frame', HEADERS)):
         if tags is None:
             tags = []
 
-        return super().__new__(
-            cls, start, stop, project, id, tags, updated_at
-        )
+        return super().__new__(cls, start, stop, project, id, tags, updated_at)
 
     def dump(self):
-        start = self.start.to('utc').int_timestamp
-        stop = self.stop.to('utc').int_timestamp if self.stop else None
+        start = self.start.to("utc").int_timestamp
+        stop = self.stop.to("utc").int_timestamp if self.stop else None
         updated_at = self.updated_at.int_timestamp
 
         return (start, stop, self.project, self.id, self.tags, updated_at)
 
     @property
     def day(self):
-        return self.start.floor('day')
+        return self.start.floor("day")
 
     def __lt__(self, other):
         return self.start < other.start
@@ -62,7 +69,7 @@ class Frame(namedtuple('Frame', HEADERS)):
 
 
 class Span:
-    def __init__(self, start, stop, timeframe='day'):
+    def __init__(self, start, stop, timeframe="day"):
         self.timeframe = timeframe
         self.start = start.floor(self.timeframe)
         self.stop = stop.ceil(self.timeframe)
@@ -122,9 +129,7 @@ class Frames:
 
     def _get_index_by_id(self, id):
         try:
-            return next(
-                i for i, v in enumerate(self['id']) if v.startswith(id)
-            )
+            return next(i for i, v in enumerate(self["id"]) if v.startswith(id))
         except StopIteration:
             raise KeyError(f"Frame with id {id} not found.") from None
 
@@ -139,12 +144,10 @@ class Frames:
         self._rows.append(frame)
         return frame
 
-    def new_frame(self, project, start, stop, tags=None, id=None,
-                  updated_at=None):
+    def new_frame(self, project, start, stop, tags=None, id=None, updated_at=None):
         if not id:
             id = uuid.uuid4().hex
-        return Frame(start, stop, project, id, tags=tags,
-                     updated_at=updated_at)
+        return Frame(start, stop, project, id, tags=tags, updated_at=updated_at)
 
     def dump(self):
         return tuple(frame.dump() for frame in self._rows)
@@ -162,14 +165,14 @@ class Frames:
         for frame in self._rows:
             if projects is not None and frame.project not in projects:
                 continue
-            if ignore_projects is not None and\
-               frame.project in ignore_projects:
+            if ignore_projects is not None and frame.project in ignore_projects:
                 continue
 
             if tags is not None and not any(tag in frame.tags for tag in tags):
                 continue
-            if ignore_tags is not None and\
-               any(tag in frame.tags for tag in ignore_tags):
+            if ignore_tags is not None and any(
+                tag in frame.tags for tag in ignore_tags
+            ):
                 continue
 
             if span is None:
