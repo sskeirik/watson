@@ -1,0 +1,75 @@
+[project]
+name = "td-watson"
+version = "3.0.0"
+description = "A wonderful CLI to track your time!"
+readme = "README.rst"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "TailorDev", email = "contact@tailordev.fr" }]
+requires-python = ">=3.12"
+keywords = ["watson", "time-tracking", "time", "tracking", "monitoring", "report"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: End Users/Desktop",
+    "Environment :: Console",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Office/Business",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "arrow>=1.3",
+    "click>=8.1",
+    "click-didyoumean",
+    "colorama; sys_platform == 'win32'",
+    "python-dateutil>=2.8",
+    "requests",
+]
+
+[project.urls]
+Homepage = "https://github.com/TailorDev/Watson"
+
+[project.scripts]
+watson = "watson.__main__:cli"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-datafiles>=3",
+    "pytest-mock>=3",
+    "ruff>=0.8",
+]
+docs = [
+    "mkdocs",
+    "mkdocs-bootswatch",
+]
+
+[build-system]
+requires = ["uv_build>=0.13.7,<0.14"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "watson"
+module-root = ""
+source-include = [
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "mkdocs.yml",
+    "watson.completion",
+    "watson.zsh-completion",
+    "watson.fish",
+    "docs/**",
+    "scripts/**",
+    "tests/**",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "datafiles: pytest-datafiles plugin marker. This avoids warning message.",
+]
