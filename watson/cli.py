@@ -537,7 +537,7 @@ def status(watson, project, tags, elapsed):
     _status_notices(watson)
 
 
-_SHORTCUT_OPTIONS = ["all", "year", "quarter", "month", "luna", "week", "day"]
+_SHORTCUT_OPTIONS = ["all", "year", "quarter", "month", "week", "day"]
 _SHORTCUT_OPTIONS_VALUES = {k: get_start_time_for_period(k) for k in _SHORTCUT_OPTIONS}
 
 # Shortcuts that name a fixed-length calendar period --prev/--range can step by
@@ -667,7 +667,6 @@ def _period_options(foreign=("quarter",)):
 @_shortcut_option("year", "-y", "Reports activity for the current year.")
 @_shortcut_option("quarter", "-q", "Reports activity for the current quarter.")
 @_shortcut_option("month", "-m", "Reports activity for the current month.")
-@_shortcut_option("luna", "-l", "Reports activity for the current moon cycle.")
 @_shortcut_option("week", "-w", "Reports activity for the current week.")
 @_shortcut_option("day", "-d", "Reports activity for the current day.")
 @_shortcut_option("all", "-a", "Reports all activities.")
@@ -757,7 +756,6 @@ def report(
     month,
     week,
     day,
-    luna,
     all,
     output_format,
     pager,
@@ -778,8 +776,6 @@ def report(
     `--day` sets the report timespan to the current day (beginning at `00:00h`)
     and `--year`, `--month` and `--week` to the current year, month, or week,
     respectively.
-    The shortcut `--luna` sets the timespan to the current moon cycle with
-    the last full moon marking the start of the cycle.
 
     `--quarter` covers the current calendar quarter. To look further back,
     combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
@@ -896,7 +892,6 @@ def report(
         month=month,
         week=week,
         day=day,
-        luna=luna,
         all=all,
         include_partial_frames=include_partial_frames,
     )
@@ -1257,7 +1252,6 @@ def aggregate(ctx, watson, current, from_, to, projects, tags, output_format, pa
 @_shortcut_option("year", "-y", "Reports activity for the current year.")
 @_shortcut_option("quarter", "-q", "Reports activity for the current quarter.")
 @_shortcut_option("month", "-m", "Reports activity for the current month.")
-@_shortcut_option("luna", "-l", "Reports activity for the current moon cycle.")
 @_shortcut_option("week", "-w", "Reports activity for the current week.")
 @_shortcut_option("day", "-d", "Reports activity for the current day.")
 @_shortcut_option("all", "-a", "Reports all activities.")
@@ -1348,7 +1342,6 @@ def log(
     month,
     week,
     day,
-    luna,
     all,
     output_format,
     pager,
@@ -1364,8 +1357,6 @@ def log(
     `--day` sets the log timespan to the current day (beginning at `00:00h`)
     and `--year`, `--month` and `--week` to the current year, month, or week,
     respectively.
-    The shortcut `--luna` sets the timespan to the current moon cycle with
-    the last full moon marking the start of the cycle.
 
     `--quarter` covers the current calendar quarter. To look further back,
     combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
@@ -1423,7 +1414,7 @@ def log(
     02cb269,2014-04-16 09:53,2014-04-16 12:43,apollo11,wheels
     1070ddb,2014-04-16 13:48,2014-04-16 16:17,voyager1,"antenna, sensors"
     """  # noqa
-    for start_time in (_ for _ in [day, week, month, luna, year, all] if _ is not None):
+    for start_time in (_ for _ in [day, week, month, year, all] if _ is not None):
         from_ = start_time
 
     if from_ > to:

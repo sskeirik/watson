@@ -461,12 +461,11 @@ class Watson:
         month=None,
         week=None,
         day=None,
-        luna=None,
         all=None,
         include_partial_frames=False,
     ):
         for start_time in (
-            _ for _ in [day, week, month, year, luna, all] if _ is not None
+            _ for _ in [day, week, month, year, all] if _ is not None
         ):
             from_ = start_time
 

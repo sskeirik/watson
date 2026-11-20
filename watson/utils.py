@@ -17,8 +17,6 @@ from click.exceptions import UsageError
 
 import watson as _watson
 
-from .fullmoon import get_last_full_moon
-
 
 def create_watson():
     return _watson.Watson(config_dir=os.environ.get("WATSON_DIR"))
@@ -184,8 +182,6 @@ def get_start_time_for_period(period, now=None):
         start_time = arrow.Arrow(year, month, 1)
     elif period == "quarter":
         start_time = arrow.Arrow(year, (month - 1) // 3 * 3 + 1, 1)
-    elif period == "luna":
-        start_time = get_last_full_moon(now)
     elif period == "year":
         start_time = arrow.Arrow(year, 1, 1)
     elif period == "all":

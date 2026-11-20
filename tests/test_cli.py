@@ -322,7 +322,6 @@ def test_report_quarter_shortcut(runner, watson):
     [
         (["-w", "--prev", "1-3"], "start offset 1 is less than end offset 3"),
         (["--prev", "2"], "needs exactly one of"),
-        (["-l", "--prev", "1"], "needs exactly one of"),
         (["-a", "--range", "1"], "needs exactly one of"),
         (["-w", "--prev", "1", "--range", "2"], "mutually exclusive"),
         (["--prev", "1", "--from", "2018-01-01"], "can't be combined with --from"),
@@ -333,8 +332,8 @@ def test_report_quarter_shortcut(runner, watson):
 )
 @pytest.mark.parametrize("command", ["report", "log", "aggregate"])
 def test_period_offsets_errors(runner, watson, command, args, message):
-    if command == "aggregate" and args[0] in ("-l", "-a"):
-        pytest.skip("aggregate has no --luna/--all")
+    if command == "aggregate" and args[0] == "-a":
+        pytest.skip("aggregate has no --all")
     result = runner.invoke(getattr(cli, command), args, obj=watson)
     assert result.exit_code != 0
     assert message in result.output

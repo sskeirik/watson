@@ -312,8 +312,6 @@ You can also use special shortcut options for easier timespan control:
 `--day` sets the log timespan to the current day (beginning at `00:00h`)
 and `--year`, `--month` and `--week` to the current year, month, or week,
 respectively.
-The shortcut `--luna` sets the timespan to the current moon cycle with
-the last full moon marking the start of the cycle.
 
 `--quarter` covers the current calendar quarter. To look further back,
 combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
@@ -382,7 +380,6 @@ Flag | Help
 `-y, --year` | Reports activity for the current year.
 `-q, --quarter` | Reports activity for the current quarter.
 `-m, --month` | Reports activity for the current month.
-`-l, --luna` | Reports activity for the current moon cycle.
 `-w, --week` | Reports activity for the current week.
 `-d, --day` | Reports activity for the current day.
 `-a, --all` | Reports all activities.
@@ -545,8 +542,6 @@ You can also use special shortcut options for easier timespan control:
 `--day` sets the report timespan to the current day (beginning at `00:00h`)
 and `--year`, `--month` and `--week` to the current year, month, or week,
 respectively.
-The shortcut `--luna` sets the timespan to the current moon cycle with
-the last full moon marking the start of the cycle.
 
 `--quarter` covers the current calendar quarter. To look further back,
 combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
@@ -653,7 +648,6 @@ Flag | Help
 `-y, --year` | Reports activity for the current year.
 `-q, --quarter` | Reports activity for the current quarter.
 `-m, --month` | Reports activity for the current month.
-`-l, --luna` | Reports activity for the current moon cycle.
 `-w, --week` | Reports activity for the current week.
 `-d, --day` | Reports activity for the current day.
 `-a, --all` | Reports all activities.
