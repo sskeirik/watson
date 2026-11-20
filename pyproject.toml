@@ -73,3 +73,16 @@ testpaths = ["tests"]
 markers = [
     "datafiles: pytest-datafiles plugin marker. This avoids warning message.",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+# Line length is owned by `ruff format`; long strings/docstrings are fine.
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests access properties purely to trigger lazy loading errors.
+"tests/**" = ["B018"]

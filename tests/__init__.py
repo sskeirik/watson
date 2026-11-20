@@ -2,10 +2,9 @@
 
 import datetime
 import os
+from io import StringIO
 from pathlib import Path
 from unittest import mock
-from io import StringIO
-
 
 TEST_FIXTURE_DIR = Path(os.path.realpath(__file__)).parent / 'resources'
 

@@ -2,7 +2,6 @@ import datetime
 import itertools
 import json
 import operator
-import os
 from functools import reduce, wraps
 
 import arrow
@@ -10,6 +9,7 @@ import click
 from click_didyoumean import DYMGroup
 
 import watson as _watson
+
 from .autocompletion import (
     get_frames,
     get_project_or_task_completion,
@@ -32,18 +32,19 @@ from .utils import (
     frames_to_json,
     get_frame_from_argument,
     get_start_time_for_period,
-    options, safe_save,
+    json_arrow_encoder,
+    options,
+    parse_tags,
+    safe_save,
     sorted_groupby,
     style,
-    parse_tags,
-    json_arrow_encoder,
 )
 
 
 class MutuallyExclusiveOption(click.Option):
     def __init__(self, *args, **kwargs):
         self.mutually_exclusive = set(kwargs.pop('mutually_exclusive', []))
-        super(MutuallyExclusiveOption, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
     def handle_parse_result(self, ctx, opts, args):
         if self.name in opts:
@@ -51,7 +52,7 @@ class MutuallyExclusiveOption(click.Option):
                 self._raise_exclusive_error()
             if self.multiple and len(set(opts[self.name])) > 1:
                 self._raise_exclusive_error()
-        return super(MutuallyExclusiveOption, self).handle_parse_result(
+        return super().handle_parse_result(
             ctx, opts, args
         )
 
@@ -64,7 +65,7 @@ class MutuallyExclusiveOption(click.Option):
                 'error',
                 'The following options are mutually exclusive: '
                 '{options}'.format(options=', '.join(
-                    ['`--{}`'.format(_) for _ in self.mutually_exclusive]))))
+                    [f'`--{_}`' for _ in self.mutually_exclusive]))))
 
 
 class DateTimeParamType(click.ParamType):
@@ -75,8 +76,8 @@ class DateTimeParamType(click.ParamType):
             date = self._parse_multiformat(value)
             if date is None:
                 raise click.UsageError(
-                    "Could not match value '{}' to any supported date format"
-                    .format(value)
+                    f"Could not match value '{value}' to any supported date format"
+
                 )
             # When we parse a date, we want to parse it in the timezone
             # expected by the user, so that midnight is midnight in the local
@@ -120,7 +121,7 @@ def catch_watson_error(func):
         try:
             return func(*args, **kwargs)
         except _watson.WatsonError as e:
-            raise click.ClickException(style('error', str(e)))
+            raise click.ClickException(style('error', str(e))) from e
     return wrapper
 
 
@@ -160,7 +161,7 @@ def help(ctx, command):
     cmd = cli.get_command(ctx, command)
 
     if not cmd:
-        raise click.ClickException("No such command: {}".format(command))
+        raise click.ClickException(f"No such command: {command}")
 
     click.echo(cmd.get_help(ctx))
 
@@ -1100,7 +1101,7 @@ def log(watson, current, reverse, from_, to, projects, tags, ignore_projects,
 
         _print(
             "{date} ({daily_total})".format(
-                date=style('date', "{:dddd DD MMMM YYYY}".format(day)),
+                date=style('date', f"{day:dddd DD MMMM YYYY}"),
                 daily_total=style('time', format_timedelta(daily_total))
             )
         )
@@ -1112,8 +1113,8 @@ def log(watson, current, reverse, from_, to, projects, tags, ignore_projects,
                     frame.project, longest_project
                 )),
                 tags=(" "*2 if frame.tags else "") + style('tags', frame.tags),
-                start=style('time', '{:HH:mm}'.format(frame.start)),
-                stop=style('time', '{:HH:mm}'.format(frame.stop)),
+                start=style('time', f'{frame.start:HH:mm}'),
+                stop=style('time', f'{frame.stop:HH:mm}'),
                 id=style('short_id', frame.id)
             )
             for frame in frames
@@ -1272,7 +1273,7 @@ def edit(watson, confirm_new_project, confirm_new_tag, id):
     """
     date_format = 'YYYY-MM-DD'
     time_format = 'HH:mm:ss'
-    datetime_format = '{} {}'.format(date_format, time_format)
+    datetime_format = f'{date_format} {time_format}'
     local_tz = local_tz_info()
 
     if id:
@@ -1341,7 +1342,7 @@ def edit(watson, confirm_new_project, confirm_new_tag, id):
             #  the edit function normally
             break
         except (ValueError, TypeError, RuntimeError) as e:
-            click.echo("Error while parsing inputted values: {}".format(e),
+            click.echo(f"Error while parsing inputted values: {e}",
                        err=True)
         except KeyError:
             click.echo(
@@ -1400,8 +1401,8 @@ def remove(watson, id, force):
             "{project}{tags} from {start} to {stop}, continue?".format(
                 project=style('project', frame.project),
                 tags=(" " if frame.tags else "") + style('tags', frame.tags),
-                start=style('time', '{:HH:mm}'.format(frame.start)),
-                stop=style('time', '{:HH:mm}'.format(frame.stop))
+                start=style('time', f'{frame.start:HH:mm}'),
+                stop=style('time', f'{frame.stop:HH:mm}')
             ),
             abort=True
         )
@@ -1442,7 +1443,7 @@ def config(context, key, value, edit):
         try:
             with open(watson.config_file) as fp:
                 rawconfig = fp.read()
-        except (IOError, OSError):
+        except OSError:
             rawconfig = ''
 
         newconfig = click.edit(text=rawconfig, extension='.ini')
@@ -1452,11 +1453,11 @@ def config(context, key, value, edit):
 
         try:
             watson.config = None
-            watson.config  # triggers reloading config from file
+            watson.config  # noqa: B018 -- triggers reloading config from file
         except _watson.ConfigurationError as exc:
             watson.config = wconfig
             watson.save()
-            raise click.ClickException(style('error', str(exc)))
+            raise click.ClickException(style('error', str(exc))) from exc
         return
 
     if not key:
@@ -1468,15 +1469,15 @@ def config(context, key, value, edit):
     except ValueError:
         raise click.ClickException(
             "The key must have the format 'section.option'"
-        )
+        ) from None
 
     if value is None:
         if not wconfig.has_section(section):
-            raise click.ClickException("No such section {}".format(section))
+            raise click.ClickException(f"No such section {section}")
 
         if not wconfig.has_option(section, option):
             raise click.ClickException(
-                "No such option {} in {}".format(option, section)
+                f"No such option {option} in {section}"
             )
 
         click.echo(wconfig.get(section, option))
@@ -1510,10 +1511,10 @@ def sync(watson):
     """
     last_pull = arrow.utcnow()
     pulled = watson.pull()
-    click.echo("Received {} frames from the server".format(len(pulled)))
+    click.echo(f"Received {len(pulled)} frames from the server")
 
     pushed = watson.push(last_pull)
-    click.echo("Pushed {} frames to the server".format(len(pushed)))
+    click.echo(f"Pushed {len(pushed)} frames to the server")
 
     watson.last_sync = arrow.utcnow()
     watson.save()
@@ -1709,5 +1710,5 @@ def rename(watson, rename_type, old_name, new_name):
         raise click.ClickException(style(
             'error',
             'You have to call rename with type "project" or "tag"; '
-            'you supplied "%s"' % rename_type
+            f'you supplied "{rename_type}"'
         ))

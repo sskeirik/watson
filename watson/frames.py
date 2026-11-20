@@ -1,8 +1,7 @@
 import uuid
+from collections import namedtuple
 
 import arrow
-
-from collections import namedtuple
 
 from .timezone import local_tz_info
 
@@ -24,7 +23,7 @@ class Frame(namedtuple('Frame', HEADERS)):
                 updated_at = arrow.get(updated_at)
         except (ValueError, TypeError) as e:
             from .watson import WatsonError
-            raise WatsonError("Error converting date: {}".format(e))
+            raise WatsonError(f"Error converting date: {e}") from e
 
         start = start.to(local_tz_info())
 
@@ -34,7 +33,7 @@ class Frame(namedtuple('Frame', HEADERS)):
         if tags is None:
             tags = []
 
-        return super(Frame, cls).__new__(
+        return super().__new__(
             cls, start, stop, project, id, tags, updated_at
         )
 
@@ -62,7 +61,7 @@ class Frame(namedtuple('Frame', HEADERS)):
         return self.start >= other.start
 
 
-class Span(object):
+class Span:
     def __init__(self, start, stop, timeframe='day'):
         self.timeframe = timeframe
         self.start = start.floor(self.timeframe)
@@ -75,7 +74,7 @@ class Span(object):
         return frame.start >= self.start and frame.stop <= self.stop
 
 
-class Frames(object):
+class Frames:
     def __init__(self, frames=None):
         if not frames:
             frames = []
@@ -127,7 +126,7 @@ class Frames(object):
                 i for i, v in enumerate(self['id']) if v.startswith(id)
             )
         except StopIteration:
-            raise KeyError("Frame with id {} not found.".format(id))
+            raise KeyError(f"Frame with id {id} not found.") from None
 
     def _get_col(self, col):
         index = HEADERS.index(col)
