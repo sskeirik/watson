@@ -2,6 +2,11 @@
 
 ## Overview
 
+> This is a personal fork of [Watson](https://github.com/TailorDev/Watson) by
+> [TailorDev](https://github.com/TailorDev) and its contributors, to whom all
+> credit for the original tool belongs. The fork's repository is
+> [sskeirik/watson](https://github.com/sskeirik/watson).
+
 Watson is here to help you monitor your time. You want to know how
 much time you are spending on your projects? You want to generate a nice
 report for your client? Watson is here for you.
@@ -24,44 +29,17 @@ with your colleagues.
 
 ## Installation
 
-Watson is available on any platform supported by Python (Windows, Mac,
-Linux, *BSD…). The easiest way to install it is to use
-[pip](https://pip.pypa.io/en/stable/installing/):
+This fork requires Python 3.12+ and runs on Windows, macOS and Linux. Install
+it with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-$ pip install td-watson
+$ uv tool install git+https://github.com/sskeirik/watson
 ```
 
-Depending on your system, you might need to run this command with root privileges in order to install Watson globally.
+The packages on PyPI, Homebrew and the AUR are for the original Watson, not
+this fork.
 
-On OS X, the easiest way to install Watson is using [Homebrew](http://brew.sh/):
-
-```bash
-$ brew update && brew install watson
-```
-
-### Distribution packages
-
-You can install Watson using available distribution packages.
-
-**Arch Linux**
-
-A `PKGBUILD` file for building an Arch Linux package is available in the
-[AUR](https://aur.archlinux.org/packages/watson/). You can build and
-install it using the [makepkg](https://wiki.archlinux.org/index.php/Makepkg)
-or an [AUR helper](https://wiki.archlinux.org/index.php/AUR_helpers).
-Please refer to the official documentation for more information on
-installing AUR packages.
-
-### Single user installation
-
-You can choose to install Watson for your user only by running:
-
-```bash
-$ pip install --user td-watson
-```
-
-If after this the `watson` command is not available, you need to add `~/.local/bin/` to your `PATH`. If your terminal is Bash, you can do this by running:
+If the `watson` command is not available, you need to add `~/.local/bin/` to your `PATH`. If your terminal is Bash, you can do this by running:
 
 ```bash
 $ echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc  # Add ~/.local/bin/ to your .bashrc PATH
@@ -78,9 +56,9 @@ $ source ~/.bashrc  # Reload your .bashrc
 The latest development version can be installed using the following commands:
 
 ```bash
-$ git clone https://github.com/TailorDev/Watson.git
-$ cd Watson/
-$ pip install -e .
+$ git clone https://github.com/sskeirik/watson.git
+$ cd watson/
+$ uv tool install -e .
 ```
 
 ### Command line completion
