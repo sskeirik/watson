@@ -164,9 +164,9 @@ You can edit the config file with an editor with the `--edit` option.
 Example:
 
 
-    $ watson config backend.token 7e329263e329
-    $ watson config backend.token
-    7e329263e329
+    $ watson config options.stop_on_start true
+    $ watson config options.stop_on_start
+    true
 
 ### Options
 
@@ -893,32 +893,6 @@ Example:
 Flag | Help
 -----|-----
 `--at DATETIME` | Stop frame at this time. Must be in (YYYY-MM-DDT)?HH:MM(:SS)? format.
-`--help` | Show this message and exit.
-
-## `sync`
-
-```bash
-Usage:  watson sync [OPTIONS]
-```
-
-Get the frames from the server and push the new ones.
-
-The URL of the server and the User Token must be defined via the
-`watson config` command.
-
-Example:
-
-
-    $ watson config backend.url http://localhost:4242
-    $ watson config backend.token 7e329263e329
-    $ watson sync
-    Received 42 frames from the server
-    Pushed 23 frames to the server
-
-### Options
-
-Flag | Help
------|-----
 `--help` | Show this message and exit.
 
 ## `tags`

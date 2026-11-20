@@ -1840,9 +1840,9 @@ def config(context, key, value, edit):
     Example:
 
     \b
-    $ watson config backend.token 7e329263e329
-    $ watson config backend.token
-    7e329263e329
+    $ watson config options.stop_on_start true
+    $ watson config options.stop_on_start
+    true
     """
     watson = context.obj
     wconfig = watson.config
@@ -1894,36 +1894,6 @@ def config(context, key, value, edit):
         wconfig.set(section, option, value)
         watson.config = wconfig
         watson.save()
-
-
-@cli.command()
-@click.pass_obj
-@catch_watson_error
-def sync(watson):
-    """
-    Get the frames from the server and push the new ones.
-
-    The URL of the server and the User Token must be defined via the
-    `watson config` command.
-
-    Example:
-
-    \b
-    $ watson config backend.url http://localhost:4242
-    $ watson config backend.token 7e329263e329
-    $ watson sync
-    Received 42 frames from the server
-    Pushed 23 frames to the server
-    """
-    last_pull = arrow.utcnow()
-    pulled = watson.pull()
-    click.echo(f"Received {len(pulled)} frames from the server")
-
-    pushed = watson.push(last_pull)
-    click.echo(f"Pushed {len(pushed)} frames to the server")
-
-    watson.last_sync = arrow.utcnow()
-    watson.save()
 
 
 @cli.command()

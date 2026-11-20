@@ -31,7 +31,6 @@ dependencies = [
     "click-didyoumean",
     "colorama; sys_platform == 'win32'",
     "python-dateutil>=2.8",
-    "requests",
 ]
 
 [project.urls]

@@ -71,9 +71,9 @@ $ watson config SECTION.KEY VALUE
 Example:
 
 ```bash
-$ watson config backend.token 7e329263e329  # set configuration
-$ watson config backend.token  # display configuration
-7e329263e329
+$ watson config options.stop_on_start true  # set configuration
+$ watson config options.stop_on_start  # display configuration
+true
 ```
 
 Or open an editor with:
@@ -83,18 +83,6 @@ $ watson config -e
 ```
 
 ## Available settings
-
-### Backend
-
-At this time there is no official backend for Watson. We are working on it. But in a near future, you will be able to synchronize Watson with a public (or your private) repository via the [`sync`](./commands.md#sync) command. To configure your repository please set up the `[backend]` section.
-
-#### `backend.url` (default: empty)
-
-This is the API root url of your repository, e.g. `https://my.server.com/api/`
-
-#### `backend.token` (default: empty)
-
-To authenticate watson as an API client, once generated, you will need to set up your API token in your configuration, e.g. `7e329263e329`.
 
 ### Options
 
@@ -230,10 +218,6 @@ A basic configuration file looks like the following:
 
 ```ini
 # Watson configuration
-
-[backend]
-url = https://api.crick.fr
-token = yourapitoken
 
 [options]
 stop_on_start = true

@@ -2,7 +2,6 @@ import datetime
 import json
 import operator
 import os
-import uuid
 from configparser import Error as CFGParserError
 from functools import reduce
 from typing import Any
@@ -46,7 +45,6 @@ class Watson:
         self._current: dict[str, Any] | None = None
         self._old_state: dict[str, Any] | None = None
         self._frames: Frames | None = None
-        self._last_sync: Any = None
         self._config: ConfigParser | None = None
         self._config_changed = False
 
@@ -55,16 +53,12 @@ class Watson:
         self.config_file = os.path.join(self._dir, "config")
         self.frames_file = os.path.join(self._dir, "frames")
         self.state_file = os.path.join(self._dir, "state")
-        self.last_sync_file = os.path.join(self._dir, "last_sync")
 
         if "frames" in kwargs:
             self.frames = kwargs["frames"]
 
         if "current" in kwargs:
             self.current = kwargs["current"]
-
-        if "last_sync" in kwargs:
-            self.last_sync = kwargs["last_sync"]
 
     @property
     def config_dir(self):
@@ -157,11 +151,6 @@ class Watson:
             if self._config_changed:
                 safe_save(self.config_file, self.config.write)
 
-            if self._last_sync is not None:
-                safe_save(
-                    self.last_sync_file,
-                    make_json_writer(self._format_date, self.last_sync),
-                )
         except OSError as e:
             raise WatsonError(f"Impossible to write {e.filename}: {e}") from e
 
@@ -211,24 +200,6 @@ class Watson:
 
         if self._old_state is None:
             self._old_state = self._current
-
-    @property
-    def last_sync(self):
-        if self._last_sync is None:
-            self.last_sync = self._load_json_file(self.last_sync_file, type=int)
-
-        return self._last_sync
-
-    @last_sync.setter
-    def last_sync(self, value):
-        if not value:
-            self._last_sync = arrow.get(0)
-            return
-
-        if not isinstance(value, arrow.Arrow):
-            value = self._parse_date(value)
-
-        self._last_sync = value
 
     @property
     def is_started(self):
@@ -319,107 +290,6 @@ class Watson:
         Return the list of the tags, sorted by name.
         """
         return sorted(set(tag for tags in self.frames["tags"] for tag in tags))
-
-    def _get_request_info(self, route):
-        config = self.config
-
-        dest = config.get("backend", "url")
-        token = config.get("backend", "token")
-
-        if dest and token:
-            dest = "{}/{}/".format(dest.rstrip("/"), route.strip("/"))
-        else:
-            raise ConfigurationError(
-                "You must specify a remote URL (backend.url) and a token "
-                "(backend.token) using the config command."
-            )
-
-        headers = {
-            "content-type": "application/json",
-            "Authorization": f"Token {token}",
-        }
-
-        return dest, headers
-
-    def _get_remote_projects(self):
-        # import when required in order to reduce watson response time (#312)
-        import requests
-
-        if not hasattr(self, "_remote_projects"):
-            dest, headers = self._get_request_info("projects")
-
-            try:
-                response = requests.get(dest, headers=headers)
-            except requests.ConnectionError:
-                raise WatsonError("Unable to reach the server.") from None
-            if response.status_code != 200:
-                raise WatsonError(
-                    f"An error occurred with the remote server: {response.json()}"
-                )
-
-            self._remote_projects = response.json()
-
-        return self._remote_projects["projects"]
-
-    def pull(self):
-        import requests
-
-        dest, headers = self._get_request_info("frames")
-
-        try:
-            response = requests.get(
-                dest, params={"last_sync": self.last_sync}, headers=headers
-            )
-        except requests.ConnectionError:
-            raise WatsonError("Unable to reach the server.") from None
-        if response.status_code != 200:
-            raise WatsonError(
-                f"An error occurred with the remote server: {response.json()}"
-            )
-
-        frames = response.json() or ()
-
-        for frame in frames:
-            frame_id = uuid.UUID(frame["id"]).hex
-            self.frames[frame_id] = (
-                frame["project"],
-                frame["begin_at"],
-                frame["end_at"],
-                frame["tags"],
-            )
-
-        return frames
-
-    def push(self, last_pull):
-        import requests
-
-        dest, headers = self._get_request_info("frames/bulk")
-
-        frames = []
-
-        for frame in self.frames:
-            if last_pull > frame.updated_at > self.last_sync:
-                frames.append(
-                    {
-                        "id": uuid.UUID(frame.id).urn,
-                        "begin_at": str(frame.start.to("utc")),
-                        "end_at": str(frame.stop.to("utc")),
-                        "project": frame.project,
-                        "tags": frame.tags,
-                    }
-                )
-
-        try:
-            response = requests.post(dest, json.dumps(frames), headers=headers)
-        except requests.ConnectionError:
-            raise WatsonError("Unable to reach the server.") from None
-        if response.status_code != 201:
-            raise WatsonError(
-                f"An error occurred with the remote server (status: {response.status_code}). "
-                f"Response was:\n{response.text}"
-            )
-
-        return frames
 
     def merge_report(self, frames_with_conflict):
         conflict_file_frames = Frames(

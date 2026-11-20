@@ -17,10 +17,7 @@ Each frame consists of the name of a project and some tags. Your tags
 can be shared across projects and can be used to generate detailed
 reports.
 
-Watson stores everything on your computer, but you can go wild and
-upload to your own [crick server](https://github.com/TailorDev/crick)
-via the `sync` command to store your sessions remotely and share them
-with your colleagues.
+Watson stores everything on your computer.
 
 ![screenshot](img/screenshot.png)
 
