@@ -334,8 +334,6 @@ def test_report_quarter_shortcut(runner, watson):
 )
 @pytest.mark.parametrize("command", ["report", "log", "aggregate"])
 def test_period_offsets_errors(runner, watson, command, args, message):
-    if command == "aggregate" and args[0] == "-a":
-        pytest.skip("aggregate has no --all")
     result = runner.invoke(getattr(cli, command), args, obj=watson)
     assert result.exit_code != 0
     assert message in result.output
@@ -357,6 +355,14 @@ def test_aggregate_period_offsets(runner, period_watson):
     lines = [line for line in result.output.splitlines() if line]
     assert lines[1].startswith("2018-11-27 00:00:00,2018-11-27 23:59:59,last-week")
     assert len(lines) == 2
+
+
+def test_aggregate_all_starts_at_first_frame(runner, period_watson):
+    result = runner.invoke(cli.aggregate, ["--csv", "-a"], obj=period_watson)
+    assert result.exit_code == 0, result.output
+    lines = [line for line in result.output.splitlines() if line]
+    assert lines[1].startswith("2018-09-12 00:00:00,2018-09-12 23:59:59,last-quarter")
+    assert any("this-week" in line for line in lines)
 
 
 def test_aggregate_week_shortcut(runner, watson):

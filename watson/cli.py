@@ -1082,7 +1082,7 @@ def report(
     default=None,
     help="(Don't) view output through a pager.",
 )
-@_period_options(allow_all=False)
+@_period_options()
 @click.pass_obj
 @click.pass_context
 @catch_watson_error
@@ -1099,7 +1099,8 @@ def aggregate(ctx, watson, current, from_, to, projects, tags, output_format, pa
 
     The shortcuts `--day`, `--week`, `--month`, `--quarter` and `--year`
     start the report at the beginning of the current day, week, month,
-    quarter or year. To look further back, combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
+    quarter or year. `--all` starts at the day of the first recorded frame.
+    To look further back, combine one of `--day`, `--week`, `--month`, `--quarter` or `--year` with
     `--prev START[-END]`, which counts periods back from the current one (0):
     `--week --prev 1` is last week and `--week --prev 3-0` the past three
     weeks plus this one. `--range START[-END]` is the same, except END
@@ -1164,6 +1165,12 @@ def aggregate(ctx, watson, current, from_, to, projects, tags, output_format, pa
     2018-11-21 00:00:00,2018-11-21 23:59:59,watson,,77.0
     2018-11-21 00:00:00,2018-11-21 23:59:59,watson,docs,77.0
     """
+    if ctx.params.get("all") and len(watson.frames):
+        # `--all` starts at the epoch; begin at the first tracked day instead
+        # of printing decades of empty days.
+        earliest = min(frame.start for frame in watson.frames)
+        from_ = max(from_, earliest.to(from_.tzinfo).floor("day"))
+
     delta = (to - from_).days
     lines = []
 
