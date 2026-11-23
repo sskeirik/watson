@@ -1,0 +1,97 @@
+# Watson example configuration: every option the tool reads.
+#
+# Copy to your config file (`watson config -e` shows where it lives, or see
+# docs/user-guide/configuration.md) and edit. Every active line below is set
+# to its default, so using this file unchanged behaves like having no config.
+# Options with no default, or whose default is "unset", are commented out.
+# Only full-line comments are used: inline comments are not portable here.
+
+[options]
+# Ask before creating a new project / tag (CLI flags override).
+confirm_new_project = false
+confirm_new_tag = false
+
+# strftime formats for dates and times.
+date_format = %Y.%m.%d
+time_format = %H:%M:%S%z
+
+# Include the running frame in `log` / `report` by default.
+log_current = false
+report_current = false
+
+# Run `log` and `report` output through a pager.
+pager = true
+
+# Show the latest day first in `log`.
+reverse_log = true
+
+# Stop the running frame when `start` / `restart` begins another.
+stop_on_start = false
+stop_on_restart = false
+
+# monday, tuesday, ..., sunday
+week_start = monday
+
+# Tags attached automatically to a project: `project = tag1 tag2`.
+# Quote tags containing spaces. There are no defaults; example:
+# [default_tags]
+# python101 = teaching python
+# voyager2 = nasa 'space mission'
+
+[schedule]
+# Work days and hours used by reminders and `offhours` policies.
+# Ranges can't cross midnight; split them (20:00-24:00 00:00-02:00).
+workdays = mon tue wed thu fri
+hours = 09:00-17:00
+# Space-separated dates that count as non-work days (default: none).
+# holidays = 2026-12-25 2027-01-01
+
+[reminder]
+# Notify when no timer runs during work hours.
+enabled = true
+# Quiet this long at the start of each work period and after a stop.
+grace = 10m
+# At most one reminder per this interval.
+repeat = 30m
+
+[review]
+# Print a one-line notice at `watson start` for deferred reviews.
+remind_deferred = true
+
+[extras]
+# How often the watcher is expected to run (used to drop stale toasts).
+poll_interval = 5m
+# auto | powershell | notify-send | stdout
+notifier = auto
+
+# Forgotten-timer policies. There are no default policies, so these sections
+# are commented out; uncomment and rename to enable one. Each has one trigger
+# and one or more handlers.
+#
+#   trigger   elapsed  - fires when the frame is `after` old
+#             offhours - fires after `after` of consecutive off-hours time
+#             idle     - fires after `after` with no keyboard/mouse input
+#                        (Windows only; local session only)
+#   after     required positive duration: 90m, 1h30m, 2d
+#   stop_at   fire | onset. Default: fire for `elapsed`, onset for `offhours`
+#             and `idle`. `onset` is not allowed with `elapsed`.
+#   handlers  space-separated: toast, autostop, prompt; each may take an
+#             offset from the fire time, e.g. toast@-15m or autostop@+10m.
+#
+# [policy:long-task]
+# trigger = elapsed
+# after = 10h
+# stop_at = fire
+# handlers = toast@-30m autostop prompt
+#
+# [policy:after-hours]
+# trigger = offhours
+# after = 1h
+# stop_at = onset
+# handlers = toast@-15m toast autostop prompt
+#
+# [policy:away]
+# trigger = idle
+# after = 20m
+# stop_at = onset
+# handlers = toast@-5m autostop
