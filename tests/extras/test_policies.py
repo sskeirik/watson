@@ -15,7 +15,7 @@ def policy(name, trigger, after, handlers, stop_at=None):
         name=name,
         trigger=trigger,
         after=after,
-        stop_at=stop_at or ("onset" if trigger == "offhours" else "fire"),
+        stop_at=stop_at or ("fire" if trigger == "elapsed" else "onset"),
         handlers=parse_handlers(name, handlers),
     )
 
@@ -166,3 +166,35 @@ def test_offhours_warning_ahead_of_fire_time():
     frame = RunningFrame("p", at(2018, 12, 3, 15))
     result = run(frame, [AFTER_HOURS], make_schedules(), at(2018, 12, 3, 17, 50))
     assert [a.due_at for a in result.actions] == [at(2018, 12, 3, 17, 45)]
+
+
+AWAY = policy("away", "idle", td(minutes=20), "toast@-5m autostop")
+
+
+def test_idle_timeline_stops_at_onset():
+    frame = RunningFrame("p", at(2018, 12, 3, 9))
+    onset = at(2018, 12, 3, 10)
+
+    def go(now, delivered=None, idle_since=onset):
+        return plan(frame, [AWAY], None, now, set(delivered or ()), POLL, idle_since)
+
+    assert go(at(2018, 12, 3, 10, 14)).actions == []
+    warn = go(at(2018, 12, 3, 10, 15))
+    assert kinds(warn) == [("away", "toast")]
+    done = go(at(2018, 12, 3, 10, 20), {a.key for a in warn.actions})
+    assert kinds(done) == [("away", "autostop")]
+    assert done.actions[0].stop_at == onset
+    # delivered events are not repeated
+    seen = {a.key for a in warn.actions + done.actions}
+    assert go(at(2018, 12, 3, 10, 21), seen).actions == []
+
+
+def test_idle_unknown_is_skipped():
+    frame = RunningFrame("p", at(2018, 12, 3, 9))
+    assert plan(frame, [AWAY], None, at(2018, 12, 3, 12), set(), POLL).actions == []
+
+
+def test_idle_since_frame_start_falls_back_to_fire_time():
+    frame = RunningFrame("p", at(2018, 12, 3, 9))
+    result = plan(frame, [AWAY], None, at(2018, 12, 3, 9, 30), set(), POLL, frame.start)
+    assert result.actions[-1].stop_at == at(2018, 12, 3, 9, 20)

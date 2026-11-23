@@ -189,3 +189,53 @@ def test_snooze_until():
     assert snooze_until("90m", now=noon) == int((noon + td(minutes=90)).timestamp())
     assert snooze_until("today", now=noon) == int(at(2018, 12, 4).timestamp())
     assert snooze_until("off", now=noon) is None
+
+
+def test_idle_autostop_is_stable_across_passes(watson):
+    configure(
+        watson,
+        reminder__enabled="false",
+        policy_away__trigger="idle",
+        policy_away__after="20m",
+        policy_away__handlers="autostop",
+    )
+    watson.start("p", [], start_at=arrow.now().shift(hours=-3))
+    watson.save()
+    now = now_local()
+    idle_for = {"value": td(minutes=30)}
+
+    def provider():
+        return idle_for["value"]
+
+    run_once(
+        config_dir=watson.config_dir,
+        now=now,
+        notifier=notifier(),
+        idle_provider=provider,
+    )
+    reloaded = Watson(config_dir=watson.config_dir)
+    assert not reloaded.is_started
+    stop = reloaded.frames[-1].stop.datetime
+    assert abs((stop - (now - td(minutes=30))).total_seconds()) < 2
+
+
+def test_idle_state_resets_on_activity(watson):
+    configure(
+        watson,
+        reminder__enabled="false",
+        policy_away__trigger="idle",
+        policy_away__after="2h",
+        policy_away__handlers="toast",
+    )
+    watson.start("p", [], start_at=arrow.now().shift(hours=-3))
+    watson.save()
+    now = now_local()
+    for idle, expect_set in ((td(minutes=10), True), (td(seconds=5), False)):
+        run_once(
+            config_dir=watson.config_dir,
+            now=now,
+            notifier=notifier(),
+            idle_provider=lambda idle=idle: idle,
+        )
+        state = Store(watson.config_dir).read()
+        assert (state["idle_since"] is not None) is expect_set

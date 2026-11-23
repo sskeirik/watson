@@ -22,6 +22,7 @@ from ..timezone import local_tz_info
 from ..utils import create_watson
 from ..watson import Watson
 from . import handlers
+from .idle import get_idle_provider
 from .notify import get_notifier
 from .policies import RunningFrame, plan
 from .schedule import ScheduleError, load_schedules
@@ -38,6 +39,8 @@ log = logging.getLogger("watson.extras")
 
 LOG_FILENAME = "extras.log"
 ERROR_TOAST_EVERY = datetime.timedelta(hours=1)
+IDLE_ACTIVE_BELOW = datetime.timedelta(minutes=1)  # less idle than this = active
+IDLE_JITTER = datetime.timedelta(seconds=60)
 
 
 def _ts(moment) -> int:
@@ -68,6 +71,29 @@ def _last_stop(watson: Watson):
     return max(stops).datetime if stops else None
 
 
+def _idle_since(policies, frame, state, now, idle_provider):
+    """Start of the current idle episode, stable across passes (or None).
+
+    ``now - idle`` drifts by a few ms per pass, which would change event keys,
+    so the first value of an episode is stored and reused while new
+    measurements stay within ``IDLE_JITTER`` of it.
+    """
+    if not any(p.trigger == "idle" for p in policies):
+        return None
+    idle = (idle_provider or get_idle_provider())()
+    if idle is None or idle < IDLE_ACTIVE_BELOW:
+        state["idle_since"] = None
+        return None
+    measured = max(now - idle, frame.start)
+    stored = state.get("idle_since")
+    if stored is not None:
+        stored_dt = datetime.datetime.fromtimestamp(stored, measured.tzinfo)
+        if abs(measured - stored_dt) <= IDLE_JITTER:
+            return stored_dt
+    state["idle_since"] = _ts(measured)
+    return measured
+
+
 def _reminder_due(watson, schedules, settings, state, now) -> bool:
     if not settings.enabled or schedules is None or watson.is_started:
         return False
@@ -88,6 +114,7 @@ def run_once(
     now: datetime.datetime | None = None,
     dry_run: bool = False,
     notifier=None,
+    idle_provider=None,
 ) -> list[str]:
     """Evaluate everything once. Returns a list of human-readable lines."""
     now = now or datetime.datetime.now(local_tz_info())
@@ -138,7 +165,10 @@ def run_once(
                 start=current["start"].datetime,
                 tags=tuple(current["tags"]),
             )
-            result = plan(frame, policies, schedules, now, delivered, interval)
+            idle_since = _idle_since(policies, frame, state, now, idle_provider)
+            result = plan(
+                frame, policies, schedules, now, delivered, interval, idle_since
+            )
             if dry_run:
                 for action in result.actions:
                     lines.append("would " + handlers.describe(action, frame, now))
@@ -157,6 +187,7 @@ def run_once(
             delivered = {k for k in delivered if k.startswith(frame.key + ":")}
         else:
             delivered = set()
+            state["idle_since"] = None
             if reminder is not None and _reminder_due(
                 watson, schedules, reminder, state, now
             ):

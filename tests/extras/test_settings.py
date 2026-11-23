@@ -107,3 +107,11 @@ def test_load_policies():
 def test_load_policies_errors(values, message):
     with pytest.raises(SettingsError, match=message):
         load_policies(config(policy_bad=values))
+
+
+def test_idle_policy_defaults_to_onset():
+    c = config(
+        policy_away={"trigger": "idle", "after": "20m", "handlers": "autostop"},
+    )
+    (away,) = load_policies(c)
+    assert (away.trigger, away.after, away.stop_at) == ("idle", td(minutes=20), "onset")

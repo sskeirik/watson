@@ -66,14 +66,14 @@ class HandlerSpec:
 @dataclass(frozen=True)
 class Policy:
     name: str
-    trigger: str  # "elapsed" | "offhours"
+    trigger: str  # "elapsed" | "offhours" | "idle"
     after: datetime.timedelta
     stop_at: str  # "onset" | "fire"
     handlers: tuple[HandlerSpec, ...]
 
 
 HANDLER_NAMES = ("toast", "autostop", "prompt")
-TRIGGERS = ("elapsed", "offhours")
+TRIGGERS = ("elapsed", "offhours", "idle")
 POLICY_PREFIX = "policy:"
 
 
@@ -152,7 +152,7 @@ def load_policies(config: ConfigParser) -> list[Policy]:
         after = _get_duration(config, section, "after", None)
         if after is None or after <= datetime.timedelta():
             raise SettingsError(f"[{section}] after: a positive duration is required")
-        default_stop = "onset" if trigger == "offhours" else "fire"
+        default_stop = "fire" if trigger == "elapsed" else "onset"
         stop_at = (config.get(section, "stop_at") or default_stop).strip().lower()
         if stop_at not in ("onset", "fire"):
             raise SettingsError(f"[{section}] stop_at: expected 'onset' or 'fire'")

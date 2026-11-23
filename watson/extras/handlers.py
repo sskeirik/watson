@@ -48,6 +48,11 @@ def toast_text(action: Action, frame: RunningFrame, now: datetime.datetime) -> s
             f"'{frame.project}' has been running outside work hours since "
             f"{_fmt(action.onset)}."
         )
+    elif action.policy.trigger == "idle":
+        text = (
+            f"No keyboard or mouse activity since {_fmt(action.onset)}; "
+            f"'{frame.project}' is still running."
+        )
     else:
         text = f"'{frame.project}' has been running for {format_duration(now - frame.start)}."
     if action.autostop_at is not None and action.autostop_at > now:

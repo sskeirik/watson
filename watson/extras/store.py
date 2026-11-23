@@ -85,6 +85,7 @@ def _empty_state() -> dict:
         "snooze_until": None,
         "last_reminder": None,
         "last_error_toast": None,
+        "idle_since": None,
     }
 
 

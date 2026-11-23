@@ -8,6 +8,7 @@ import sys
 import tempfile
 
 from ..timezone import local_tz_info
+from .idle import is_supported as idle_supported
 from .notify import find_powershell, get_notifier, is_wsl, run_powershell
 from .schedule import ScheduleError, load_schedules
 from .settings import (
@@ -120,6 +121,14 @@ def checks(watson) -> list[tuple[str, str]]:
                 f"{p.name} ({p.trigger} {format_duration(p.after)})" for p in policies
             )
             out.append((OK, f"policies: {names}"))
+            if any(p.trigger == "idle" for p in policies) and not idle_supported():
+                out.append(
+                    (
+                        WARN,
+                        "idle policies need Windows; they are skipped on "
+                        f"{platform} (the watcher runs on Windows)",
+                    )
+                )
         else:
             out.append((WARN, "policies: none configured ([policy:NAME] sections)"))
     except SettingsError as e:

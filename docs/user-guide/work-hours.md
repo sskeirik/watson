@@ -130,6 +130,11 @@ handlers = toast@-15m toast autostop prompt
 trigger = elapsed         ; fires when the frame is `after` old, schedule or not
 after = 10h
 handlers = toast@-30m autostop prompt
+
+[policy:away]
+trigger = idle
+after = 20m
+handlers = toast@-5m autostop
 ```
 
 Triggers:
@@ -138,14 +143,21 @@ Triggers:
 - `offhours`: each stretch outside work hours (an evening, a lunch break, a
   whole weekend) counts on its own. The policy fires when a single stretch
   reaches `after`; returning to work hours resets the count.
+- `idle`: fires when there has been no keyboard or mouse input for `after`.
+  `stop_at = onset` (the default) stops the frame when you stopped
+  interacting, not when the policy fired. Each watcher pass asks the OS how
+  long the machine has been idle, so this works with the usual 5-minute poll.
+  Only local input in the watcher's own session counts. Activity in a remote
+  session (RDP, SSH, etc...) is not seen, so the machine can look idle while
+  you are working.
 
 Handlers fire at the trigger's fire time plus an optional offset:
 
-| Handler | What it does |
-|---|---|
-| `toast` | A notification, e.g. "'proj' has been running outside work hours since Mon 17:00. It will be stopped in 15m." |
-| `autostop` | Stops the frame and tags it `auto-stopped`. Stops at the fire time, or with `stop_at = onset` (offhours only) when the off-hours run began, e.g. 17:00. A frame that itself started off-hours is stopped at the fire time, so it isn't erased. |
-| `prompt` | Flags the frame for review at the next `watson start` (below). |
+| Handler    | What it does                                                                                                                                                                                                                                                      |
+| ---        | ---                                                                                                                                                                                                                                                               |
+| `toast`    | A notification, e.g. "'proj' has been running outside work hours since Mon 17:00. It will be stopped in 15m."                                                                                                                                                     |
+| `autostop` | Stops the frame and tags it `auto-stopped`. Stops at the fire time, or with `stop_at = onset` (offhours and idle) when the off-hours run or idle period began, e.g. 17:00. A frame that itself started off-hours is stopped at the fire time, so it isn't erased. |
+| `prompt`   | Flags the frame for review at the next `watson start` (below).                                                                                                                                                                                                    |
 
 `toast@-15m` fires 15 minutes before the trigger, and `autostop@+10m` 10
 minutes after it.
@@ -187,13 +199,13 @@ Resolve now, or defer to `watson review`? (r, d) [r]:
 
 All of these live in the data directory, next to `frames` and `state`:
 
-| File | Contents |
-|---|---|
-| `config` | Watson's config, including the sections above |
-| `schedule-alternate.ini` | the alternate schedule, if any |
-| `extras_state.json` | delivered notifications, pending reviews, snooze |
-| `extras.lock` | held briefly during updates; treated as stale after 30s |
-| `extras.log` | the watcher's log (it has no console) |
+| File                     | Contents                                                |
+| ---                      | ---                                                     |
+| `config`                 | Watson's config, including the sections above           |
+| `schedule-alternate.ini` | the alternate schedule, if any                          |
+| `extras_state.json`      | delivered notifications, pending reviews, snooze        |
+| `extras.lock`            | held briefly during updates; treated as stale after 30s |
+| `extras.log`             | the watcher's log (it has no console)                   |
 
 Writes are atomic (temp file + rename in the same directory), so the
 Windows watcher and the WSL CLI never see a half-written file.
