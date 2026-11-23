@@ -252,7 +252,8 @@ def get_period_range(period, start_offset, end_offset, week_start="monday", now=
     from_ = base.shift(**{unit: -start_offset * size})
     to = base.shift(**{unit: -(end_offset - 1) * size}).shift(microseconds=-1)
     if end_offset == 0:
-        to = min(to, now)
+        if now.timestamp() < to.timestamp():
+            to = now
     return from_, to
 
 

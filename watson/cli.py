@@ -1457,7 +1457,7 @@ def log(
         if i != 0:
             _print("")
 
-        frames = sorted(frames, key=operator.attrgetter("start"))
+        frames = sorted(frames, key=lambda f: f.start.timestamp())
         longest_project = max(len(frame.project) for frame in frames)
 
         daily_total = reduce(
@@ -1746,11 +1746,11 @@ def edit(watson, confirm_new_project, confirm_new_tag, id):
             )
             # if start time of the project is not before end time
             #  raise ValueException
-            if not watson.is_started and start > stop:
+            if not watson.is_started and start.timestamp() > stop.timestamp():
                 raise ValueError("Task cannot end before it starts.")
-            if start > arrow.utcnow():
+            if start.timestamp() > arrow.utcnow().timestamp():
                 raise ValueError("Start time cannot be in the future")
-            if stop and stop > arrow.utcnow():
+            if stop and stop.timestamp() > arrow.utcnow().timestamp():
                 raise ValueError("Stop time cannot be in the future")
             # break out of while loop and continue execution of
             #  the edit function normally

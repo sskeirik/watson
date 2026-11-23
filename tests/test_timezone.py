@@ -3,9 +3,11 @@
 import datetime
 
 import arrow
+import pytest
 
 from watson import cli
 from watson.frames import Frame
+from watson.watson import WatsonError
 from watson.timezone import duration, humanize, local_tz_info
 
 SUMMER = arrow.get("2018-07-10T16:00:00+00:00")  # EDT, UTC-4
@@ -72,3 +74,32 @@ def test_log_durations_are_real_time_across_dst(monkeypatch, watson, runner):
     assert result.exit_code == 0, result.output
     assert "(4h 00m 00s)" in result.output  # daily total
     assert "00:00 to 03:00   4h 00m 00s  night" in result.output
+
+
+# 01:30 happens twice on 2025-11-02 in New York: once EDT, once EST.
+FIRST_0130 = arrow.get("2025-11-02T05:30:00+00:00")  # 01:30 EDT
+SECOND_0130 = arrow.get("2025-11-02T06:30:00+00:00")  # 01:30 EST
+
+
+def test_frame_ordering_in_repeated_hour(monkeypatch):
+    monkeypatch.setenv("TZ", "America/New_York")
+    early = Frame(FIRST_0130, FIRST_0130.shift(minutes=5), "p", "a")
+    late = Frame(SECOND_0130, SECOND_0130.shift(minutes=5), "p", "b")
+    assert early < late
+    assert late > early
+    assert sorted([late, early]) == [early, late]
+
+
+def test_start_before_previous_stop_in_repeated_hour(monkeypatch, watson):
+    monkeypatch.setenv("TZ", "America/New_York")
+    watson.add("p", FIRST_0130.shift(minutes=-30), SECOND_0130, [])
+    # Wall clock equal to the stop, but an hour earlier in real time.
+    start_at = FIRST_0130.to(local_tz_info())
+    with pytest.raises(WatsonError):
+        watson.start("q", start_at=start_at)
+
+
+def test_add_rejects_end_before_start_in_repeated_hour(monkeypatch, watson):
+    monkeypatch.setenv("TZ", "America/New_York")
+    with pytest.raises(WatsonError):
+        watson.add("p", SECOND_0130, FIRST_0130, [])

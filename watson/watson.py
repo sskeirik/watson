@@ -267,7 +267,7 @@ class Watson:
     def add(self, project, from_date, to_date, tags):
         if not project:
             raise WatsonError("No project given.")
-        if from_date > to_date:
+        if arrow.get(from_date).timestamp() > arrow.get(to_date).timestamp():
             raise WatsonError("Task cannot end before it starts.")
 
         default_tags = self.config.getlist("default_tags", project)
@@ -292,9 +292,9 @@ class Watson:
             # Only perform this check if an explicit start time was given
             # and previous frames exist
             stop_of_prev_frame = self.frames[-1].stop
-            if start_at < stop_of_prev_frame:
+            if start_at.timestamp() < stop_of_prev_frame.timestamp():
                 raise WatsonError("Task cannot start before the previous task ends.")
-        if start_at > arrow.now():
+        if start_at.timestamp() > arrow.now().timestamp():
             raise WatsonError("Task cannot start in the future.")
 
         new_frame = {"project": project, "tags": deduplicate(tags)}
@@ -318,9 +318,9 @@ class Watson:
             # stop function and calling it, the value of `stop_at` could be
             # outdated if defined using a default argument.
             stop_at = arrow.now()
-        if old["start"] > stop_at:
+        if old["start"].timestamp() > stop_at.timestamp():
             raise WatsonError("Task cannot end before it starts.")
-        if stop_at > arrow.now():
+        if stop_at.timestamp() > arrow.now().timestamp():
             raise WatsonError("Task cannot end in the future.")
 
         frame = self.frames.add(old["project"], old["start"], stop_at, tags=old["tags"])
@@ -394,7 +394,7 @@ class Watson:
         if not self._validate_report_options(tags, ignore_tags):
             raise WatsonError("given tags can't be ignored at the same time")
 
-        if from_ > to:
+        if from_.timestamp() > to.timestamp():
             raise WatsonError("'from' must be anterior to 'to'")
 
         if current is None:

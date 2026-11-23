@@ -57,16 +57,16 @@ class Frame(namedtuple("Frame", HEADERS)):
         return self.start.floor("day")
 
     def __lt__(self, other):
-        return self.start < other.start
+        return self.start.timestamp() < other.start.timestamp()
 
     def __lte__(self, other):
-        return self.start <= other.start
+        return self.start.timestamp() <= other.start.timestamp()
 
     def __gt__(self, other):
-        return self.start > other.start
+        return self.start.timestamp() > other.start.timestamp()
 
     def __gte__(self, other):
-        return self.start >= other.start
+        return self.start.timestamp() >= other.start.timestamp()
 
 
 class Span:
@@ -76,10 +76,16 @@ class Span:
         self.stop = stop.ceil(self.timeframe)
 
     def overlaps(self, frame):
-        return frame.start <= self.stop and frame.stop >= self.start
+        return (
+            frame.start.timestamp() <= self.stop.timestamp()
+            and frame.stop.timestamp() >= self.start.timestamp()
+        )
 
     def __contains__(self, frame):
-        return frame.start >= self.start and frame.stop <= self.stop
+        return (
+            frame.start.timestamp() >= self.start.timestamp()
+            and frame.stop.timestamp() <= self.stop.timestamp()
+        )
 
 
 class Frames:
@@ -184,8 +190,16 @@ class Frames:
                 # If requested, return the part of the frame that is within the
                 # span, for frames that are *partially* within span or reaching
                 # over span
-                start = span.start if frame.start < span.start else frame.start
-                stop = span.stop if frame.stop > span.stop else frame.stop
+                start = (
+                    span.start
+                    if frame.start.timestamp() < span.start.timestamp()
+                    else frame.start
+                )
+                stop = (
+                    span.stop
+                    if frame.stop.timestamp() > span.stop.timestamp()
+                    else frame.stop
+                )
                 yield frame._replace(start=start, stop=stop)
 
     def span(self, start, stop):
