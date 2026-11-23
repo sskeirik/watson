@@ -557,16 +557,16 @@ _RANGE_HELP = (
 )
 
 
-def _period_options(allow_all=True):
+def _period_options():
     """Add the period options to a timespan command and canonicalize them.
 
-    Adds the shortcut flags (`--day`, `--week`, ..., and `--all` when
-    `allow_all`), `--prev` and `--range`. The command must declare `--from`
+    Adds the shortcut flags (`--day`, `--week`, ..., `--all`), `--prev` and
+    `--range`. The command must declare `--from`
     (`from_`) and `--to` (`to`) itself. The wrapper validates all of these
     and resolves them into an explicit `from_`/`to` range, so the command body
     only ever sees plain `from_`/`to` values and none of the period options.
     """
-    names = [n for n in _SHORTCUT_OPTIONS if allow_all or n != "all"]
+    names = _SHORTCUT_OPTIONS
 
     def decorator(func):
         @wraps(func)
