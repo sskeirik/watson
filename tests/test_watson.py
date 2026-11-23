@@ -7,7 +7,7 @@ import arrow
 import pytest
 from click import get_app_dir
 
-from watson import Watson, WatsonError
+from watson import ConflictError, Watson, WatsonError
 from watson.frames import Frame
 from watson.watson import ConfigParser, ConfigurationError
 
@@ -752,3 +752,80 @@ def test_validate_report_options(watson):
         ["project_foo", "project_bar"], ["project_foo", "project_bar"]
     )
     assert watson._validate_report_options(None, None)
+
+
+# concurrent saves
+
+
+def test_save_refuses_to_overwrite_frames_changed_by_another_process(config_dir):
+    ours = Watson(config_dir=config_dir)
+    assert len(ours.frames) == 0  # read
+
+    theirs = Watson(config_dir=config_dir)
+    theirs.add("theirs", 4000, 5000, [])
+    theirs.save()
+
+    ours.add("ours", 6000, 7000, [])
+    with pytest.raises(ConflictError, match="'frames' changed"):
+        ours.save()
+    assert [f.project for f in Watson(config_dir=config_dir).frames] == ["theirs"]
+
+
+def test_save_refuses_to_overwrite_state_changed_by_another_process(config_dir):
+    ours = Watson(config_dir=config_dir)
+    assert not ours.is_started  # read
+
+    theirs = Watson(config_dir=config_dir)
+    theirs.start("theirs")
+    theirs.save()
+
+    ours.start("ours")
+    with pytest.raises(ConflictError, match="'state' changed"):
+        ours.save()
+    assert Watson(config_dir=config_dir).current["project"] == "theirs"
+
+
+def test_save_checks_files_read_even_if_not_written(config_dir):
+    # `stop` decides from the state, so a stale state must block the frames
+    # write too, even when only the state changed underneath.
+    ours = Watson(config_dir=config_dir)
+    assert len(ours.frames) == 0 and not ours.is_started
+
+    theirs = Watson(config_dir=config_dir)
+    theirs.start("theirs")
+    theirs.save()
+
+    ours.add("ours", 4000, 5000, [])
+    with pytest.raises(ConflictError):
+        ours.save()
+
+
+def test_successive_saves_by_one_instance_do_not_conflict(config_dir):
+    watson = Watson(config_dir=config_dir)
+    watson.start("one", start_at=arrow.now().shift(hours=-1))
+    watson.save()
+    watson.stop()
+    watson.save()
+    watson.add("two", 4000, 5000, [])
+    watson.save()
+    fresh = Watson(config_dir=config_dir)
+    assert sorted(f.project for f in fresh.frames) == ["one", "two"]
+    assert not fresh.is_started
+
+
+def test_save_after_another_process_is_fine_when_reading_after_it(config_dir):
+    theirs = Watson(config_dir=config_dir)
+    theirs.add("theirs", 4000, 5000, [])
+    theirs.save()
+
+    ours = Watson(config_dir=config_dir)
+    ours.add("ours", 6000, 7000, [])
+    ours.save()
+    assert len(Watson(config_dir=config_dir).frames) == 2
+
+
+def test_save_leaves_no_lock_file(config_dir):
+    watson = Watson(config_dir=config_dir)
+    watson.add("p", 4000, 5000, [])
+    watson.save()
+    assert not os.path.exists(os.path.join(config_dir, "data.lock"))

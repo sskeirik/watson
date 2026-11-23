@@ -253,4 +253,7 @@ This can be useful to preserve your real data when hacking with Watson :)
 To share one data folder between Windows and WSL, point WSL's `WATSON_DIR`
 at the Windows default, e.g.
 `/mnt/c/Users/<windows-user>/AppData/Roaming/watson`. Saves are atomic, so
-both sides can use it safely.
+neither side ever reads a half-written file. A command also refuses to save
+if another process changed the data after the command read it (for
+instance, the watcher auto-stopping a frame while `watson edit` is open):
+it prints an error, saves nothing, and you can run it again.

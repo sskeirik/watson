@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 import arrow
 
-from ..watson import Watson, WatsonError
+from ..watson import ConflictError, Watson, WatsonError
 from . import review
 from .policies import Action, RunningFrame
 from .settings import format_duration
@@ -65,30 +65,42 @@ def autostop(config_dir: str, action: Action, frame: RunningFrame):
 
     The caller holds the store lock. The CLI doesn't take that lock, so
     reload Watson's state right before writing (compare-and-swap on the
-    frame start) to avoid acting on a frame the user already changed.
+    frame start) to avoid acting on a frame the user already changed. If a
+    CLI command saves in between, the save raises ConflictError: reload and
+    check again.
     """
-    watson = Watson(config_dir=config_dir)
-    current = watson.current
-    if not current or int(current["start"].timestamp()) != int(frame.start.timestamp()):
-        log.info("autostop skipped: '%s' is no longer running", frame.project)
-        return None
-    tags = list(current["tags"])
-    if AUTOSTOP_TAG not in tags:
-        tags.append(AUTOSTOP_TAG)
-    watson.current = {**current, "tags": tags}
-    try:
-        stopped = watson.stop(stop_at=arrow.get(action.stop_at))
-    except WatsonError as e:
-        log.error("autostop failed: %s", e)
-        return None
-    watson.save()
-    log.info(
-        "auto-stopped '%s' at %s (%s)",
-        frame.project,
-        action.stop_at,
-        action.policy.name,
-    )
-    return stopped
+    for attempt in range(3):
+        watson = Watson(config_dir=config_dir)
+        current = watson.current
+        if not current or int(current["start"].timestamp()) != int(
+            frame.start.timestamp()
+        ):
+            log.info("autostop skipped: '%s' is no longer running", frame.project)
+            return None
+        tags = list(current["tags"])
+        if AUTOSTOP_TAG not in tags:
+            tags.append(AUTOSTOP_TAG)
+        watson.current = {**current, "tags": tags}
+        try:
+            stopped = watson.stop(stop_at=arrow.get(action.stop_at))
+            watson.save()
+        except ConflictError as e:
+            if attempt < 2:
+                log.info("autostop retrying: %s", e)
+                continue
+            log.error("autostop failed: %s", e)
+            return None
+        except WatsonError as e:
+            log.error("autostop failed: %s", e)
+            return None
+        log.info(
+            "auto-stopped '%s' at %s (%s)",
+            frame.project,
+            action.stop_at,
+            action.policy.name,
+        )
+        return stopped
+    return None
 
 
 def execute(

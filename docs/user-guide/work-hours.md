@@ -205,10 +205,14 @@ All of these live in the data directory, next to `frames` and `state`:
 | `schedule-alternate.ini` | the alternate schedule, if any                          |
 | `extras_state.json`      | delivered notifications, pending reviews, snooze        |
 | `extras.lock`            | held briefly during updates; treated as stale after 30s |
+| `data.lock`              | held briefly while `frames` and `state` are saved       |
 | `extras.log`             | the watcher's log (it has no console)                   |
 
 Writes are atomic (temp file + rename in the same directory), so the
-Windows watcher and the WSL CLI never see a half-written file.
+Windows watcher and the WSL CLI never see a half-written file. Each process
+rewrites whole files, so a save is refused if `frames` or `state` changed
+since that process read them; the watcher retries, and a CLI command reports
+the conflict and saves nothing.
 
 `[extras] notifier = auto | powershell | notify-send | stdout` picks how
 notifications are shown. `auto` uses PowerShell's WinRT toasts on Windows

@@ -11,6 +11,7 @@ import click
 
 from .config import ConfigParser
 from .frames import Frames
+from .lock import FileLock, LockTimeout
 from .timezone import local_tz_info
 from .utils import deduplicate, make_json_writer, safe_save, sorted_groupby
 from .version import version as __version__  # noqa
@@ -22,6 +23,26 @@ class WatsonError(RuntimeError):
 
 class ConfigurationError(CFGParserError, WatsonError):
     pass
+
+
+class ConflictError(WatsonError):
+    """Another process changed the data files after this one read them."""
+
+
+DATA_LOCK_FILENAME = "data.lock"
+
+
+def _fingerprint(path):
+    """Identity of a file's current version, or None if it doesn't exist.
+
+    Saves replace files (a new inode each time), so the inode alone tells
+    versions apart; mtime and size cover filesystems without stable inodes.
+    """
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_ino, st.st_mtime_ns, st.st_size)
 
 
 class Watson:
@@ -47,6 +68,8 @@ class Watson:
         self._frames: Frames | None = None
         self._config: ConfigParser | None = None
         self._config_changed = False
+        # Fingerprints of the data files as read, checked again before saving
+        self._fingerprints: dict[str, Any] = {}
 
         self._dir = kwargs.pop("config_dir", None) or click.get_app_dir("watson")
 
@@ -71,6 +94,9 @@ class Watson:
         If the file doesn't exist, return an empty instance of the
         given type.
         """
+        # Stat before reading: if the file is replaced in between, the save
+        # check sees a spurious conflict rather than missing a real one.
+        self._fingerprints[filename] = _fingerprint(filename)
         try:
             with open(filename, encoding="utf-8") as f:
                 return json.load(f)
@@ -127,32 +153,65 @@ class Watson:
     def save(self):
         """
         Save the state in the appropriate files. Create them if necessary.
+
+        Several processes may share the data directory (e.g. the CLI and the
+        forgotten-timer watcher), and each one rewrites whole files. So that
+        one doesn't silently undo another's changes, nothing is saved, and
+        ConflictError is raised, if a frames or state file this instance read
+        was changed by another process since.
         """
+        writes = []
+        current = None
+        if self._current is not None and self._old_state != self._current:
+            if self.is_started:
+                current = {
+                    "project": self.current["project"],
+                    "start": self._format_date(self.current["start"]),
+                    "tags": self.current["tags"],
+                }
+            else:
+                current = {}
+            writes.append((self.state_file, make_json_writer(lambda: current)))
+        if self._frames is not None and self._frames.changed:
+            writes.append((self.frames_file, make_json_writer(self.frames.dump)))
+        if self._config_changed:
+            writes.append((self.config_file, self.config.write))
+        if not writes:
+            return
+
         try:
             if not os.path.isdir(self._dir):
                 os.makedirs(self._dir)
 
-            if self._current is not None and self._old_state != self._current:
-                if self.is_started:
-                    current = {
-                        "project": self.current["project"],
-                        "start": self._format_date(self.current["start"]),
-                        "tags": self.current["tags"],
-                    }
-                else:
-                    current = {}
+            with FileLock(os.path.join(self._dir, DATA_LOCK_FILENAME)):
+                self._check_unchanged()
+                for path, content in writes:
+                    safe_save(path, content)
+                    if path in (self.state_file, self.frames_file):
+                        self._fingerprints[path] = _fingerprint(path)
+                if current is not None:
+                    self._old_state = current
 
-                safe_save(self.state_file, make_json_writer(lambda: current))
-                self._old_state = current
-
-            if self._frames is not None and self._frames.changed:
-                safe_save(self.frames_file, make_json_writer(self.frames.dump))
-
-            if self._config_changed:
-                safe_save(self.config_file, self.config.write)
-
+        except LockTimeout as e:
+            raise WatsonError(str(e)) from e
         except OSError as e:
             raise WatsonError(f"Impossible to write {e.filename}: {e}") from e
+
+    def _check_unchanged(self):
+        changed = [
+            os.path.basename(path)
+            for path, seen in self._fingerprints.items()
+            if _fingerprint(path) != seen
+        ]
+        if changed:
+            raise ConflictError(
+                "{} changed since this command read {}, probably by another "
+                "Watson process (e.g. the watcher stopping a forgotten "
+                "timer). Nothing was saved; run the command again.".format(
+                    " and ".join(f"'{name}'" for name in sorted(changed)),
+                    "it" if len(changed) == 1 else "them",
+                )
+            )
 
     @property
     def frames(self):

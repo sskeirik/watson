@@ -1,8 +1,9 @@
 import datetime
 
 import arrow
+import pytest
 
-from watson import Watson
+from watson import ConflictError, Watson
 from watson.extras.notify import StdoutNotifier
 from watson.extras.store import Store
 from watson.extras.watch import run_once, snooze_until
@@ -59,6 +60,62 @@ def test_autostop_and_review(watson):
     n2 = notifier()
     assert run_once(config_dir=watson.config_dir, notifier=n2) == []
     assert n2.sent == []
+
+
+def test_autostop_during_an_open_edit_is_not_lost(watson):
+    # `watson edit <id>` read the frames, then the watcher auto-stopped the
+    # running frame while the editor was open. Saving the edit must not drop
+    # the auto-stopped frame (the running frame would vanish entirely).
+    configure(
+        watson,
+        reminder__enabled="false",
+        policy_test__trigger="elapsed",
+        policy_test__after="1h",
+        policy_test__handlers="autostop",
+    )
+    watson.add("earlier", arrow.now().shift(hours=-5), arrow.now().shift(hours=-4), [])
+    watson.start("forgot", start_at=arrow.now().shift(hours=-2))
+    watson.save()
+
+    editor = Watson(config_dir=watson.config_dir)
+    earlier = editor.frames[0]
+    run_once(config_dir=watson.config_dir, notifier=notifier())
+
+    editor.frames[earlier.id] = ("renamed", earlier.start, earlier.stop, [])
+    with pytest.raises(ConflictError):
+        editor.save()
+    projects = [f.project for f in Watson(config_dir=watson.config_dir).frames]
+    assert projects == ["earlier", "forgot"]
+
+
+def test_autostop_retries_after_a_conflicting_save(watson, mocker):
+    configure(
+        watson,
+        reminder__enabled="false",
+        policy_test__trigger="elapsed",
+        policy_test__after="1h",
+        policy_test__handlers="autostop",
+    )
+    watson.start("forgot", start_at=arrow.now().shift(hours=-2))
+    watson.save()
+
+    real_save = Watson.save
+    calls = []
+
+    def flaky_save(self):
+        calls.append(1)
+        if len(calls) == 1:
+            raise ConflictError("'frames' changed")
+        return real_save(self)
+
+    mocker.patch.object(Watson, "save", flaky_save)
+    run_once(config_dir=watson.config_dir, notifier=notifier())
+    mocker.stopall()
+
+    fresh = Watson(config_dir=watson.config_dir)
+    assert len(calls) == 2
+    assert not fresh.is_started
+    assert fresh.frames[-1].project == "forgot"
 
 
 def test_dry_run_changes_nothing(watson):
