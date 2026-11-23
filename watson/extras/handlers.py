@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 import arrow
 
+from ..timezone import local_tz_info
 from ..watson import ConflictError, Watson, WatsonError
 from . import review
 from .policies import Action, RunningFrame
@@ -26,7 +27,14 @@ class Outcome:
 
 
 def _fmt(moment: datetime.datetime) -> str:
-    return arrow.get(moment).to(moment.tzinfo or "local").format("ddd HH:mm")
+    # Policy times are in UTC; show them in local time. (Not arrow's
+    # "local": since arrow 1.4 that's a fixed offset, see watson.timezone.)
+    return arrow.get(moment).to(local_tz_info()).format("ddd HH:mm")
+
+
+def _between(start: datetime.datetime, end: datetime.datetime) -> datetime.timedelta:
+    """Real time between two aware datetimes (not wall clock, across DST)."""
+    return datetime.timedelta(seconds=end.timestamp() - start.timestamp())
 
 
 def describe(action: Action, frame: RunningFrame, now: datetime.datetime) -> str:
@@ -54,9 +62,9 @@ def toast_text(action: Action, frame: RunningFrame, now: datetime.datetime) -> s
             f"'{frame.project}' is still running."
         )
     else:
-        text = f"'{frame.project}' has been running for {format_duration(now - frame.start)}."
+        text = f"'{frame.project}' has been running for {format_duration(_between(frame.start, now))}."
     if action.autostop_at is not None and action.autostop_at > now:
-        text += f" It will be stopped in {format_duration(action.autostop_at - now)}."
+        text += f" It will be stopped in {format_duration(_between(now, action.autostop_at))}."
     return text
 
 

@@ -12,14 +12,29 @@ A policy has one trigger and one or more handlers:
 Each handler (``toast``, ``autostop``, ``prompt``) fires at the trigger's
 fire time plus its own offset (``toast@-15m`` warns 15 minutes early). A
 handler is identified by a key, so it is delivered exactly once.
+
+All arithmetic is done in UTC: aware datetimes that share a ``tzinfo`` add
+and subtract by wall clock, which is an hour off across a DST change. The
+times in an ``Action`` are in UTC; convert them to local time for display.
 """
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 from dataclasses import dataclass
 
 from .settings import HandlerSpec, Policy
+
+UTC = datetime.UTC
+
+
+def _utc(moment: datetime.datetime) -> datetime.datetime:
+    return moment.astimezone(UTC)
+
+
+def _utc_frame(frame: RunningFrame) -> RunningFrame:
+    return dataclasses.replace(frame, start=_utc(frame.start))
 
 
 @dataclass(frozen=True)
@@ -59,6 +74,9 @@ def firings(
     policy: Policy, frame: RunningFrame, schedules, horizon, idle_since=None
 ) -> list[tuple]:
     """``(onset, fire_at)`` pairs for ``policy`` with fire times up to ``horizon``."""
+    frame = _utc_frame(frame)
+    horizon = _utc(horizon)
+    idle_since = None if idle_since is None else _utc(idle_since)
     if policy.trigger == "elapsed":
         fire_at = frame.start + policy.after
         return [(frame.start, fire_at)] if fire_at <= horizon else []
@@ -119,6 +137,9 @@ def plan(
       when it is more than two poll intervals late.
     - Prompts always run; reviews are deduplicated per frame.
     """
+    frame = _utc_frame(frame)
+    now = _utc(now)
+    idle_since = None if idle_since is None else _utc(idle_since)
     candidates: list[Action] = []
     for policy in policies:
         if policy.trigger == "offhours" and schedules is None:

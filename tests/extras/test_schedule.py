@@ -129,3 +129,22 @@ def test_write_alternate_round_trips(watson):
     assert s.alternate is not None
     assert s.alternate.start == MON
     assert s.alternate.schedule.describe() == standard.describe()
+
+
+def test_work_intervals_measure_real_time_on_dst_days():
+    s = make_schedules(hours=("00:00-24:00",), workdays=range(7))
+    # 2025-11-02 has 25 hours in New York, 2025-03-09 has 23
+    ((start, end),) = s.work_intervals(at(2025, 11, 2), at(2025, 11, 3))
+    assert end - start == datetime.timedelta(hours=25)
+    ((start, end),) = s.work_intervals(at(2025, 3, 9), at(2025, 3, 10))
+    assert end - start == datetime.timedelta(hours=23)
+
+
+def test_repeated_hour_after_fall_back_is_told_apart():
+    from watson.timezone import local_tz_info
+
+    s = make_schedules(hours=("01:00-01:30",), workdays=range(7))
+    first = at(2025, 11, 2, 1, 15)  # EDT (fold=0): within the range
+    second = datetime.datetime(2025, 11, 2, 1, 15, fold=1, tzinfo=local_tz_info())
+    assert s.is_work_time(first)
+    assert not s.is_work_time(second)  # an hour after the range ended

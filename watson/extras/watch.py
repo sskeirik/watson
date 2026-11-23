@@ -41,6 +41,9 @@ LOG_FILENAME = "extras.log"
 ERROR_TOAST_EVERY = datetime.timedelta(hours=1)
 IDLE_ACTIVE_BELOW = datetime.timedelta(minutes=1)  # less idle than this = active
 IDLE_JITTER = datetime.timedelta(seconds=60)
+# Times are handled in UTC: aware datetimes sharing a tzinfo subtract by wall
+# clock, which is an hour off across a DST change.
+UTC = datetime.UTC
 
 
 def _ts(moment) -> int:
@@ -84,10 +87,10 @@ def _idle_since(policies, frame, state, now, idle_provider):
     if idle is None or idle < IDLE_ACTIVE_BELOW:
         state["idle_since"] = None
         return None
-    measured = max(now - idle, frame.start)
+    measured = max(now - idle, frame.start).astimezone(UTC)
     stored = state.get("idle_since")
     if stored is not None:
-        stored_dt = datetime.datetime.fromtimestamp(stored, measured.tzinfo)
+        stored_dt = datetime.datetime.fromtimestamp(stored, UTC)
         if abs(measured - stored_dt) <= IDLE_JITTER:
             return stored_dt
     state["idle_since"] = _ts(measured)
@@ -117,7 +120,7 @@ def run_once(
     idle_provider=None,
 ) -> list[str]:
     """Evaluate everything once. Returns a list of human-readable lines."""
-    now = now or datetime.datetime.now(local_tz_info())
+    now = (now or datetime.datetime.now(local_tz_info())).astimezone(UTC)
     watson = Watson(config_dir=config_dir) if config_dir else create_watson()
     store = Store(watson.config_dir)
     lines: list[str] = []
@@ -265,9 +268,9 @@ def snooze_until(value: str, now: datetime.datetime | None = None) -> int | None
     if text in ("off", "0", "none"):
         return None
     if text == "today":
-        tomorrow = arrow.get(now).floor("day").shift(days=1)
+        tomorrow = arrow.get(now).to(local_tz_info()).floor("day").shift(days=1)
         return _ts(tomorrow)
-    return _ts(now + parse_duration(text))
+    return _ts(now.astimezone(UTC) + parse_duration(text))
 
 
 if __name__ == "__main__":

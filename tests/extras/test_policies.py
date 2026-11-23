@@ -198,3 +198,57 @@ def test_idle_since_frame_start_falls_back_to_fire_time():
     frame = RunningFrame("p", at(2018, 12, 3, 9))
     result = plan(frame, [AWAY], None, at(2018, 12, 3, 9, 30), set(), POLL, frame.start)
     assert result.actions[-1].stop_at == at(2018, 12, 3, 9, 20)
+
+
+# DST: America/New_York falls back on 2025-11-02 at 02:00 (to 01:00) and
+# springs forward on 2025-03-09 at 02:00 (to 03:00).
+
+
+def real_hours(start, end):
+    return (end.timestamp() - start.timestamp()) / 3600
+
+
+def autostop(result):
+    return next((a for a in result.actions if a.kind == "autostop"), None)
+
+
+def test_elapsed_counts_real_time_across_fall_back():
+    frame = RunningFrame("p", at(2025, 11, 1, 20))  # EDT
+    s = make_schedules()
+    # 10 real hours later is 05:00 EST (09:00 by the wall clock's count)
+    assert autostop(run(frame, [LONG_TASK], s, at(2025, 11, 2, 4, 59))) is None
+    action = autostop(run(frame, [LONG_TASK], s, at(2025, 11, 2, 5)))
+    assert action is not None
+    assert real_hours(frame.start, action.stop_at) == 10
+
+
+def test_elapsed_counts_real_time_across_spring_forward():
+    frame = RunningFrame("p", at(2025, 3, 8, 20))  # EST
+    s = make_schedules()
+    assert autostop(run(frame, [LONG_TASK], s, at(2025, 3, 9, 6, 59))) is None
+    action = autostop(run(frame, [LONG_TASK], s, at(2025, 3, 9, 7)))
+    assert action is not None
+    assert real_hours(frame.start, action.stop_at) == 10
+
+
+def test_offhours_counts_real_time_across_fall_back():
+    weekend = policy("weekend", "offhours", td(hours=40), "autostop")
+    frame = RunningFrame("p", at(2025, 10, 31, 16))  # Friday, EDT
+    s = make_schedules()
+    # Off-hours from Fri 17:00 EDT; 40 real hours later is Sun 08:00 EST
+    assert autostop(run(frame, [weekend], s, at(2025, 11, 2, 7, 59))) is None
+    action = autostop(run(frame, [weekend], s, at(2025, 11, 2, 8)))
+    assert action is not None
+    assert action.stop_at == at(2025, 10, 31, 17)  # onset
+    assert real_hours(action.onset, action.fire_at) == 40
+
+
+def test_toast_reports_real_elapsed_time_across_dst():
+    from watson.extras.handlers import toast_text
+
+    frame = RunningFrame("p", at(2025, 11, 1, 20))
+    warn = run(frame, [LONG_TASK], make_schedules(), at(2025, 11, 2, 4, 30))
+    (action,) = warn.actions
+    text = toast_text(action, frame, at(2025, 11, 2, 4, 30))
+    assert "running for 9h30m" in text
+    assert "stopped in 30m" in text

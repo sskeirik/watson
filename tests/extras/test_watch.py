@@ -296,3 +296,28 @@ def test_idle_state_resets_on_activity(watson):
         )
         state = Store(watson.config_dir).read()
         assert (state["idle_since"] is not None) is expect_set
+
+
+def test_snooze_duration_is_real_time_across_dst():
+    before_fall_back = at(2025, 11, 2, 1, 30)  # EDT; 01:30 happens twice
+    assert snooze_until("1h", now=before_fall_back) == int(
+        before_fall_back.timestamp() + 3600
+    )
+
+
+def test_autostop_records_real_elapsed_time_across_dst(watson):
+    configure(
+        watson,
+        reminder__enabled="false",
+        policy_test__trigger="elapsed",
+        policy_test__after="10h",
+        policy_test__handlers="autostop",
+    )
+    watson.start("forgot", start_at=arrow.get(at(2025, 11, 1, 20)))
+    watson.save()
+
+    run_once(config_dir=watson.config_dir, now=at(2025, 11, 2, 5), notifier=notifier())
+
+    frame = Watson(config_dir=watson.config_dir).frames[-1]
+    assert frame.project == "forgot"
+    assert frame.stop.timestamp() - frame.start.timestamp() == 10 * 3600

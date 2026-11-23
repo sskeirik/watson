@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 
 from ..timezone import local_tz_info
 
+UTC = datetime.UTC
+
 ALTERNATE_FILENAME = "schedule-alternate.ini"
 
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -108,15 +110,20 @@ class Schedules:
         return self.standard
 
     def work_intervals(self, start, end) -> list[tuple]:
-        """Merged work intervals overlapping ``[start, end]``, clipped to it."""
+        """Merged work intervals overlapping ``[start, end]``, clipped to it.
+
+        The intervals are in UTC. Datetimes sharing a ``tzinfo`` compare and
+        subtract by wall clock, which is off by an hour across a DST change,
+        so everything here is compared, and handed out, in UTC.
+        """
         tz = local_tz_info()
-        start = start.astimezone(tz)
-        end = end.astimezone(tz)
+        start, end = start.astimezone(UTC), end.astimezone(UTC)
         out = []
-        day = start.date() - datetime.timedelta(days=1)  # ranges ending at 24:00
-        while day <= end.date():
+        # The day before: ranges ending at 24:00 belong to the previous day
+        day = start.astimezone(tz).date() - datetime.timedelta(days=1)
+        while day <= end.astimezone(tz).date():
             for s, e in self.for_date(day).work_intervals(day):
-                s, e = max(s, start), min(e, end)
+                s, e = max(s.astimezone(UTC), start), min(e.astimezone(UTC), end)
                 if s < e:
                     if out and s <= out[-1][1]:
                         out[-1] = (out[-1][0], max(out[-1][1], e))
@@ -126,7 +133,8 @@ class Schedules:
         return out
 
     def offhours_runs(self, start, end) -> list[tuple]:
-        """Consecutive off-hours intervals within ``[start, end]``."""
+        """Consecutive off-hours intervals within ``[start, end]``, in UTC."""
+        start, end = start.astimezone(UTC), end.astimezone(UTC)
         runs = []
         cursor = start
         for s, e in self.work_intervals(start, end):
@@ -138,16 +146,14 @@ class Schedules:
         return runs
 
     def is_work_time(self, moment) -> bool:
-        moment = moment.astimezone(local_tz_info())
-        return any(
-            s <= moment < e
-            for s, e in self.for_date(moment.date()).work_intervals(moment.date())
-        )
+        return self.current_work_interval(moment) is not None
 
     def current_work_interval(self, moment):
-        """The work interval containing ``moment``, or None."""
-        moment = moment.astimezone(local_tz_info())
-        for s, e in self.for_date(moment.date()).work_intervals(moment.date()):
+        """The work interval containing ``moment`` (in UTC), or None."""
+        day = moment.astimezone(local_tz_info()).date()
+        moment = moment.astimezone(UTC)
+        for s, e in self.for_date(day).work_intervals(day):
+            s, e = s.astimezone(UTC), e.astimezone(UTC)
             if s <= moment < e:
                 return s, e
         return None
