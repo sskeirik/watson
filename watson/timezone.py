@@ -32,3 +32,23 @@ def local_tz_info() -> datetime.tzinfo:
             " a valid timezone."
         )
     return tzinfo
+
+
+# Aware datetimes (and arrow.Arrow objects) that share a tzinfo subtract and
+# compare by wall clock, ignoring the UTC offset, and every Watson time is in
+# the same local zone. So `stop - start` is an hour off when a DST change
+# falls in between; these helpers measure real elapsed time instead.
+
+
+def duration(start, stop) -> datetime.timedelta:
+    """Real time from ``start`` to ``stop`` (datetimes or arrow objects)."""
+    return datetime.timedelta(seconds=stop.timestamp() - start.timestamp())
+
+
+def humanize(moment, other=None) -> str:
+    """``moment.humanize(other)`` for an arrow object, correct across DST.
+
+    arrow converts ``other`` (default: now) into ``moment``'s own zone before
+    subtracting, so convert both to UTC first.
+    """
+    return moment.to("utc").humanize(None if other is None else other.to("utc"))

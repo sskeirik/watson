@@ -12,7 +12,7 @@ import click
 from .config import ConfigParser
 from .frames import Frames
 from .lock import FileLock, LockTimeout
-from .timezone import local_tz_info
+from .timezone import duration, local_tz_info
 from .utils import deduplicate, make_json_writer, safe_save, sorted_groupby
 from .version import version as __version__  # noqa
 
@@ -436,7 +436,9 @@ class Watson:
         for project, frames in frames_by_project:
             frames = tuple(frames)
             delta = reduce(
-                operator.add, (f.stop - f.start for f in frames), datetime.timedelta()
+                operator.add,
+                (duration(f.start, f.stop) for f in frames),
+                datetime.timedelta(),
             )
             total += delta
 
@@ -461,7 +463,7 @@ class Watson:
             for tag in tags_to_print:
                 delta = reduce(
                     operator.add,
-                    (f.stop - f.start for f in frames if tag in f.tags),
+                    (duration(f.start, f.stop) for f in frames if tag in f.tags),
                     datetime.timedelta(),
                 )
 

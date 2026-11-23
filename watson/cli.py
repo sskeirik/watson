@@ -19,7 +19,7 @@ from .autocompletion import (
     get_tags,
 )
 from .frames import Frame
-from .timezone import local_tz_info
+from .timezone import duration, humanize, local_tz_info
 from .utils import (
     build_csv,
     confirm_project,
@@ -334,8 +334,8 @@ def stop(watson, at_):
         output_str.format(
             style("project", frame.project),
             (" " if frame.tags else "") + style("tags", frame.tags),
-            style("time", frame.start.humanize()),
-            style("time", frame.stop.humanize()),
+            style("time", humanize(frame.start)),
+            style("time", humanize(frame.stop)),
             style("short_id", frame.id),
         )
     )
@@ -514,7 +514,7 @@ def status(watson, project, tags, elapsed):
         return
 
     if elapsed:
-        click.echo("{}".format(style("time", current["start"].humanize())))
+        click.echo("{}".format(style("time", humanize(current["start"]))))
         return
 
     datefmt = watson.config.get("options", "date_format", "%Y.%m.%d")
@@ -523,7 +523,7 @@ def status(watson, project, tags, elapsed):
         "Project {}{} started {} ({} {})".format(
             style("project", current["project"]),
             (" " if current["tags"] else "") + style("tags", current["tags"]),
-            style("time", current["start"].humanize()),
+            style("time", humanize(current["start"])),
             style("date", current["start"].strftime(datefmt)),
             style("time", current["start"].strftime(timefmt)),
         )
@@ -1461,7 +1461,7 @@ def log(
         longest_project = max(len(frame.project) for frame in frames)
 
         daily_total = reduce(
-            operator.add, (frame.stop - frame.start for frame in frames)
+            operator.add, (duration(frame.start, frame.stop) for frame in frames)
         )
 
         _print(
@@ -1474,7 +1474,7 @@ def log(
         _print(
             "\n".join(
                 "\t{id}  {start} to {stop}  {delta:>11}  {project}{tags}".format(
-                    delta=format_timedelta(frame.stop - frame.start),
+                    delta=format_timedelta(duration(frame.start, frame.stop)),
                     project=style(
                         "project", "{:>{}}".format(frame.project, longest_project)
                     ),
@@ -1626,8 +1626,8 @@ def add(watson, args, from_, to, confirm_new_project, confirm_new_tag):
         "Adding project {}{}, started {} and stopped {}. (id: {})".format(
             style("project", frame.project),
             (" " if frame.tags else "") + style("tags", frame.tags),
-            style("time", frame.start.humanize()),
-            style("time", frame.stop.humanize()),
+            style("time", humanize(frame.start)),
+            style("time", humanize(frame.stop)),
             style("short_id", frame.id),
         )
     )
@@ -1780,7 +1780,7 @@ def edit(watson, confirm_new_project, confirm_new_tag, id):
     click.echo(
         "Edited frame for project {project}{tags}, from {start} to {stop} "
         "({delta})".format(
-            delta=format_timedelta(stop - start) if stop else "-",
+            delta=format_timedelta(duration(start, stop)) if stop else "-",
             project=style("project", project),
             tags=(" " if tags else "") + style("tags", tags),
             start=style("time", start.to(local_tz).format(time_format)),
